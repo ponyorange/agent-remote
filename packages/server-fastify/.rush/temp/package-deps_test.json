@@ -1,0 +1,11 @@
+{
+  "files": {
+    "packages/server-fastify/.rush/temp/shrinkwrap-deps.json": "c1eb7165cf14dc04053dd5b4f60af77b4b1e77c1",
+    "packages/server-fastify/.rush/temp/package-deps_build.json": "075c064470981ff2de832e02ed5ebee2c44f5a49",
+    "packages/server-fastify/package.json": "d72c0668117e19f0a793ca8bb65fee3e3394207d",
+    "packages/server-fastify/src/index.ts": "2da71986462b84a61dab692ef2ff8a27b0a9d038",
+    "packages/server-fastify/test/index.test.ts": "74b9429b0b54c74d2acf125ddf178707f6d4883f",
+    "packages/server-fastify/tsconfig.json": "6140824303edcf06a083126e331842a6f30d8ee3"
+  },
+  "arguments": "vitest run "
+}

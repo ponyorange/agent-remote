@@ -1,0 +1,22 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/rush/v5/command-line.schema.json",
+  "commands": [
+    {
+      "name": "test",
+      "commandKind": "bulk",
+      "summary": "Run tests in all packages",
+      "description": "Run Vitest tests across all @agent-remote packages.",
+      "enableParallelism": true,
+      "ignoreMissingScript": false
+    },
+    {
+      "name": "lint",
+      "commandKind": "bulk",
+      "summary": "Lint all packages",
+      "description": "Run ESLint across all @agent-remote packages.",
+      "enableParallelism": true,
+      "ignoreMissingScript": false
+    }
+  ],
+  "parameters": []
+}

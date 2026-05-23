@@ -1,0 +1,10 @@
+{
+  "files": {
+    "packages/server-redis/.rush/temp/shrinkwrap-deps.json": "39e557fbed0f9ca9040afc11fc0844639569c6da",
+    "packages/server-redis/package.json": "0e7521ae4452d8079d3a0afd38fdfb9c29ae07b7",
+    "packages/server-redis/src/index.ts": "b24ab236317b67330d3a93281c30e5ace382272b",
+    "packages/server-redis/test/index.test.ts": "80216b87a34507146826e8c7b47f9eed93d4d5f0",
+    "packages/server-redis/tsconfig.json": "6140824303edcf06a083126e331842a6f30d8ee3"
+  },
+  "arguments": "tsup src/index.ts --format cjs,esm --dts --clean "
+}

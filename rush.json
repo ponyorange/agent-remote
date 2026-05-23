@@ -1,0 +1,61 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/rush/v5/rush.schema.json",
+  "rushVersion": "5.120.0",
+  "pnpmVersion": "8.15.0",
+  "nodeSupportedVersionRange": ">=18.18.0 <23.0.0",
+  "projectFolderMinDepth": 2,
+  "projectFolderMaxDepth": 2,
+  "ensureConsistentVersions": true,
+  "projects": [
+    {
+      "packageName": "@agent-remote/core",
+      "projectFolder": "packages/core",
+      "reviewCategory": "core"
+    },
+    {
+      "packageName": "@agent-remote/transport-ws",
+      "projectFolder": "packages/transport-ws",
+      "reviewCategory": "transport"
+    },
+    {
+      "packageName": "@agent-remote/transport-sse",
+      "projectFolder": "packages/transport-sse",
+      "reviewCategory": "transport"
+    },
+    {
+      "packageName": "@agent-remote/client",
+      "projectFolder": "packages/client",
+      "reviewCategory": "client"
+    },
+    {
+      "packageName": "@agent-remote/server-core",
+      "projectFolder": "packages/server-core",
+      "reviewCategory": "server-core"
+    },
+    {
+      "packageName": "@agent-remote/server-express",
+      "projectFolder": "packages/server-express",
+      "reviewCategory": "server-adapter"
+    },
+    {
+      "packageName": "@agent-remote/server-fastify",
+      "projectFolder": "packages/server-fastify",
+      "reviewCategory": "server-adapter"
+    },
+    {
+      "packageName": "@agent-remote/server-node",
+      "projectFolder": "packages/server-node",
+      "reviewCategory": "server-adapter"
+    },
+    {
+      "packageName": "@agent-remote/server-redis",
+      "projectFolder": "packages/server-redis",
+      "reviewCategory": "server-adapter"
+    },
+    {
+      "packageName": "@agent-remote/react",
+      "projectFolder": "packages/react",
+      "reviewCategory": "client"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "files": {
+    "packages/client/.rush/temp/shrinkwrap-deps.json": "d3cac32176eb7010ff0785b3cd170ce526e57340",
+    "packages/client/.rush/temp/package-deps_build.json": "2d940aaacb69197dd39ea2bf6f1331e5dc7361ce",
+    "packages/client/.rush/temp/package-deps_test.json": "ff152d425b020600d43569982534e2a6f865aca3",
+    "packages/client/package.json": "32c22b5dcf65225ccaa69b9aef5da65761fe4857",
+    "packages/client/src/index.ts": "c27468a756e25c6141c78420355096a28768161c",
+    "packages/client/src/sse.ts": "631d1f6ecda4c3bacae8ba3e66fd431f9c05d4a6",
+    "packages/client/src/ws.ts": "d306e731dbaaf8b44a9dd018b0725f29877a0a1e",
+    "packages/client/test/index.test.ts": "20fa73f1a543afdc37f15e4c50355b5476cea3f8",
+    "packages/client/tsconfig.json": "6140824303edcf06a083126e331842a6f30d8ee3"
+  },
+  "arguments": "tsc --noEmit "
+}

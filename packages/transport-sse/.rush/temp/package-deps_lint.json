@@ -1,0 +1,12 @@
+{
+  "files": {
+    "packages/transport-sse/.rush/temp/shrinkwrap-deps.json": "c861253065bcc6c853fe5e60ce145a0ed9b7685d",
+    "packages/transport-sse/.rush/temp/package-deps_build.json": "66fb087ad9b4434f8bd497fab22a88339499b882",
+    "packages/transport-sse/.rush/temp/package-deps_test.json": "2b55f1c47e2bcdd09bc2cbf8a3948ce289ef5067",
+    "packages/transport-sse/package.json": "2e361ddb300847c0c7f3c20ea532d88fc9d81af4",
+    "packages/transport-sse/src/index.ts": "f5842d4b791b45f54c0aad3bcc38b3f1e48e1735",
+    "packages/transport-sse/test/index.test.ts": "10a7984b8539dcb41c53406fae3b3509b54f5d32",
+    "packages/transport-sse/tsconfig.json": "6140824303edcf06a083126e331842a6f30d8ee3"
+  },
+  "arguments": "tsc --noEmit "
+}

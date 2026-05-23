@@ -1,0 +1,11 @@
+{
+  "files": {
+    "packages/server-express/.rush/temp/shrinkwrap-deps.json": "2ea693e038e961cbc2f1e148edbc8b56812df8ee",
+    "packages/server-express/.rush/temp/package-deps_build.json": "9f1a0b17884eba3539ab91052794867cce81d97b",
+    "packages/server-express/package.json": "518aa3b2998d37233f7e68611de74615fb2572d6",
+    "packages/server-express/src/index.ts": "f4f8b3a0096da1b42a9436b234a9f31dd5103766",
+    "packages/server-express/test/index.test.ts": "6f3fb140ba0fd4ed9c2971caa2054ed75c77ed33",
+    "packages/server-express/tsconfig.json": "6140824303edcf06a083126e331842a6f30d8ee3"
+  },
+  "arguments": "vitest run "
+}
