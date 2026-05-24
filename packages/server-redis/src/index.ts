@@ -17,6 +17,10 @@ export interface RedisPubSubClient {
   subscribe(channel: string, listener: (payload: string) => void | Promise<void>): Promise<unknown>;
 }
 
+export interface RedisMessageBrokerOptions {
+  instanceId?: string;
+}
+
 export function createRedisAgentConfig(url: string, keyPrefix = "agent-remote"): RedisAgentConfig {
   if (!url) {
     throw new Error("Redis integration requires a url.");
@@ -59,18 +63,23 @@ export class RedisSessionStore implements SessionStore {
 
 export class RedisMessageBroker implements MessageBroker {
   private readonly handlers = new Set<MessageHandler>();
+  private readonly instanceId: string;
   private subscribed = false;
 
   constructor(
     private readonly publisher: RedisPubSubClient,
     private readonly subscriber: RedisPubSubClient,
-    private readonly config: RedisAgentConfig
-  ) {}
+    private readonly config: RedisAgentConfig,
+    options: RedisMessageBrokerOptions = {}
+  ) {
+    this.instanceId = options.instanceId ?? createInstanceId();
+  }
 
   async publish(sessionId: string, message: ProtocolMessage): Promise<void> {
     await this.publisher.publish(
       this.channel,
       JSON.stringify({
+        sourceId: this.instanceId,
         sessionId,
         message
       })
@@ -92,6 +101,10 @@ export class RedisMessageBroker implements MessageBroker {
         return;
       }
 
+      if (event.sourceId === this.instanceId) {
+        return;
+      }
+
       await Promise.all([...this.handlers].map((listener) => listener(event.sessionId, event.message)));
     });
   }
@@ -101,7 +114,9 @@ export class RedisMessageBroker implements MessageBroker {
   }
 }
 
-function parseBrokerPayload(payload: string): { sessionId: string; message: ProtocolMessage } | null {
+function parseBrokerPayload(
+  payload: string
+): { sourceId?: string; sessionId: string; message: ProtocolMessage } | null {
   try {
     const parsed = JSON.parse(payload) as unknown;
 
@@ -116,6 +131,7 @@ function parseBrokerPayload(payload: string): { sessionId: string; message: Prot
     }
 
     return {
+      ...(typeof parsed.sourceId === "string" ? { sourceId: parsed.sourceId } : {}),
       sessionId: parsed.sessionId,
       message: result.value
     };
@@ -126,4 +142,8 @@ function parseBrokerPayload(payload: string): { sessionId: string; message: Prot
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function createInstanceId(): string {
+  return `redis-broker-${Math.random().toString(36).slice(2)}`;
 }

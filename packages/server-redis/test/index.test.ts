@@ -71,12 +71,12 @@ describe("@agent-remote/server-redis", () => {
 
     await broker.publish("session-1", message);
 
-    expect(redis.published).toEqual([
-      {
-        channel: "custom-prefix:messages",
-        payload: JSON.stringify({ sessionId: "session-1", message })
-      }
-    ]);
+    expect(redis.published[0]?.channel).toBe("custom-prefix:messages");
+    expect(JSON.parse(redis.published[0]?.payload ?? "{}")).toEqual({
+      sourceId: expect.any(String),
+      sessionId: "session-1",
+      message
+    });
   });
 
   it("subscribes handlers to Redis channel messages", async () => {
@@ -111,6 +111,28 @@ describe("@agent-remote/server-redis", () => {
 
     await redis.emit("agent-remote:messages", "not-json");
     await redis.emit("agent-remote:messages", JSON.stringify({ sessionId: "", message: {} }));
+
+    expect(received).toEqual([]);
+  });
+
+  it("ignores messages published by the same broker instance", async () => {
+    const redis = new FakeRedisClient();
+    const broker = new RedisMessageBroker(
+      redis,
+      redis,
+      createRedisAgentConfig("redis://localhost:6379"),
+      { instanceId: "instance-1" }
+    );
+    const received: unknown[] = [];
+    await broker.subscribe((sessionId, message) => {
+      received.push({ sessionId, message });
+    });
+    const message = createAssistantMessage("Done");
+
+    await redis.emit(
+      "agent-remote:messages",
+      JSON.stringify({ sourceId: "instance-1", sessionId: "session-1", message })
+    );
 
     expect(received).toEqual([]);
   });

@@ -144,9 +144,9 @@ function handleSse(
     }
   };
 
-  engine.sessionManager.attachTransport(sessionId, transport);
+  const handle = engine.sessionManager.attachTransport(sessionId, transport);
   request.on?.("close", () => {
-    engine.sessionManager?.detachTransport(sessionId);
+    engine.sessionManager?.detachTransport(sessionId, handle);
   });
 }
 

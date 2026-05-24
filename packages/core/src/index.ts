@@ -198,14 +198,18 @@ export function validateProtocolMessage(input: unknown): ValidationResult<Protoc
   }
 
   const errors = validateProtocolMessageShape(input);
+  const normalizedTools: ToolDefinition[] = [];
 
   if (input.type === PROTOCOL_MESSAGE_TYPES.registerTools && Array.isArray(input.tools)) {
     errors.push(
       ...input.tools.flatMap((tool, index) => {
       const result = validateToolDefinition(tool);
-      return result.ok
-        ? []
-        : result.errors.map((error) => ({
+      if (result.ok) {
+        normalizedTools.push(result.value);
+        return [];
+      }
+
+      return result.errors.map((error) => ({
             ...error,
             path: `/tools/${index}${error.path}`
           }));
@@ -222,7 +226,13 @@ export function validateProtocolMessage(input: unknown): ValidationResult<Protoc
 
   return {
     ok: true,
-    value: input as unknown as ProtocolMessage
+    value:
+      input.type === PROTOCOL_MESSAGE_TYPES.registerTools
+        ? ({
+            ...input,
+            tools: normalizedTools
+          } as unknown as ProtocolMessage)
+        : (input as unknown as ProtocolMessage)
   };
 }
 

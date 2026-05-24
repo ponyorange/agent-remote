@@ -7,6 +7,7 @@ import {
   type TransportConnection
 } from "@agent-remote/core";
 import { createSSEClient } from "../src/sse";
+import { createWSClient } from "../src/ws";
 import { BrowserAgentClient, ToolRegistry } from "../src/index";
 
 describe("@agent-remote/client", () => {
@@ -162,6 +163,18 @@ describe("@agent-remote/client", () => {
     expect(errors).toEqual(["Tool failed"]);
   });
 
+  it("unsubscribes client event handlers", async () => {
+    const transport = new FakeTransport();
+    const client = new BrowserAgentClient(transport);
+    const messages: string[] = [];
+    const unsubscribe = client.on("message", (text) => messages.push(text));
+
+    unsubscribe();
+    await transport.emit(createAssistantMessage("All set"));
+
+    expect(messages).toEqual([]);
+  });
+
   it("ignores messages that are not valid agent-remote protocol messages", async () => {
     const transport = new FakeTransport();
     const client = new BrowserAgentClient(transport);
@@ -234,6 +247,23 @@ describe("@agent-remote/client", () => {
       }
     ]);
   });
+
+  it("creates a WebSocket-backed browser client", async () => {
+    const socket = new FakeWebSocket("ws://localhost:8080");
+    const client = createWSClient(
+      { url: "ws://localhost:8080", reconnect: false },
+      { createWebSocket: () => socket }
+    );
+
+    await client.sendUserMessage("Hello");
+
+    expect(socket.sent).toEqual([
+      JSON.stringify({
+        type: "agent_remote:user_message",
+        text: "Hello"
+      })
+    ]);
+  });
 });
 
 class FakeTransport implements TransportConnection {
@@ -264,6 +294,20 @@ class FakeTransport implements TransportConnection {
 }
 
 class FakeEventSource {
+  addEventListener(): void {}
+  close(): void {}
+}
+
+class FakeWebSocket {
+  readonly sent: string[] = [];
+  readonly readyState = 1;
+
+  constructor(readonly url: string) {}
+
+  send(data: string): void {
+    this.sent.push(data);
+  }
+
   addEventListener(): void {}
   close(): void {}
 }

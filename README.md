@@ -25,10 +25,12 @@ npm install -g @microsoft/rush@5.120.0
 rush install
 ```
 
-Build, test, and lint:
+Build, test, and typecheck:
 
 ```bash
 rush build
 rush test
 rush lint
 ```
+
+`rush lint` currently runs each package's `tsc --noEmit` script.

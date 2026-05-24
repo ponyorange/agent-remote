@@ -107,13 +107,12 @@ agent-remote/
 
 ### 3.2 common-versions.json
 
-统一控制公共依赖版本（如 TypeScript、ESLint、Vitest）：
+统一控制公共依赖版本（如 TypeScript、Vitest）：
 
 ```json
 {
   "preferredVersions": {
     "typescript": "~5.4.0",
-    "eslint": "^8.57.0",
     "vitest": "^1.6.0"
   }
 }
@@ -142,7 +141,7 @@ agent-remote/
     {
       "name": "lint",
       "commandKind": "bulk",
-      "summary": "Lint all packages",
+      "summary": "Typecheck all packages",
       "enableParallelism": true
     }
   ]
@@ -185,14 +184,13 @@ packages/<name>/
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src/"
+    "lint": "tsc --noEmit"
   },
   "peerDependencies": {},
   "devDependencies": {
     "typescript": "^5.4.0",
     "tsup": "^8.0.0",
-    "vitest": "^1.6.0",
-    "eslint": "^8.57.0"
+    "vitest": "^1.6.0"
   }
 }
 ```
@@ -235,11 +233,11 @@ rush build -t @agent-remote/client   # 构建到指定包及其依赖
 
 Rush 根据依赖图自动确定构建顺序。
 
-### 5.3 测试和 Lint
+### 5.3 测试和 Typecheck
 
 ```bash
 rush test   # 运行每个包的 "test" 脚本
-rush lint   # 运行每个包的 "lint" 脚本
+rush lint   # 运行每个包的 TypeScript no-emit 检查
 ```
 
 ### 5.4 添加新包
@@ -317,7 +315,7 @@ jobs:
         run: rush build --verbose
       - name: Test
         run: rush test --verbose
-      - name: Lint
+      - name: Typecheck
         run: rush lint --verbose
 ```
 
@@ -328,7 +326,7 @@ jobs:
 ## 8. 代码规范与工具
 
 - **TypeScript**：严格模式，统一 `tsconfig.base.json`。
-- **ESLint**：共享配置（如 `@rushstack/eslint-config`），放置在 `common/config/rush/.eslintrc.json` 通过 Rush 的 eslint 插件复用。
+- **Typecheck**：当前 `rush lint` 运行各包的 `tsc --noEmit`，后续可在需要时补充 ESLint。
 - **Prettier**：统一格式化，在 `common/config/rush/.prettierrc.js` 中配置，可选结合 `lint-staged`。
 - **Git Hooks**：使用 Rush 的自定义命令或 Husky 进行提交前检查（如 `rush lint-staged`）。
 

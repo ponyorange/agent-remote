@@ -173,9 +173,9 @@ class BrowserAgentClient {
   readonly registry: ToolRegistry;
 
   async connect(): Promise<void>;        // 建立连接并自动发送 agent_remote:register_tools
-  sendUserMessage(text: string): void;   // 发送 agent_remote:user_message
-  on(event: 'message' | 'error', handler: (data: any) => void): void;
-  disconnect(): void;
+  sendUserMessage(text: string): Promise<void>;   // 发送 agent_remote:user_message
+  on(event: 'message' | 'error', handler: (data: any) => void): () => void;
+  disconnect(): Promise<void>;
 }
 ```
 
@@ -186,11 +186,12 @@ class BrowserAgentClient {
 ```typescript
 // WebSocket 客户端
 import { createWSClient } from '@agent-remote/client/ws';
-const client = createWSClient('ws://localhost:8080');
+const client = createWSClient({ url: 'ws://localhost:8080' });
 
 // SSE 客户端
 import { createSSEClient } from '@agent-remote/client/sse';
 const client = createSSEClient({
+  kind: 'sse',
   sseUrl: '/sse',
   postUrls: {
     registerTools: '/api/register_tools',
@@ -233,20 +234,21 @@ interface MessageBroker {
 
 ```typescript
 class SessionManager {
-  private connections: Map<string, TransportConnection>; // 本地连接
+  private connections: Map<string, Map<symbol, TransportConnection>>; // 本地连接
   constructor(store: SessionStore, broker: MessageBroker);
 
   async getData(id: string): Promise<SessionData | null>;
   async saveData(id: string, data: SessionData): Promise<void>;
 
-  attachTransport(id: string, transport: TransportConnection): void;
-  detachTransport(id: string): void;
+  async ready(): Promise<void>;
+  attachTransport(id: string, transport: TransportConnection): TransportHandle;
+  detachTransport(id: string, handle?: TransportHandle): void;
 
   async sendToSession(id: string, msg: ProtocolMessage): Promise<void>;
 }
 ```
 
-`sendToSession` 优先使用本地连接，若本地无连接则通过 `MessageBroker` 发布到其他实例。
+`sendToSession` 会先等待 broker 订阅就绪，然后优先广播到本地连接；若本地无连接则通过 `MessageBroker` 发布到其他实例。
 
 ### 7.3 LLMClient 接口
 
@@ -265,10 +267,6 @@ class AgentEngine {
   constructor(options: {
     llmClient: LLMClient;
     sessionManager: SessionManager;
-    toolLevelStrategy?: 'static' | 'dynamic';
-    maxL1Tools?: number;
-    searchToolFn?: ToolSearchFn;
-    enableDomainFilter?: boolean;
     maxSearchResults?: number;
   });
 
@@ -306,7 +304,7 @@ class AgentEngine {
 
 ### 8.4 内置元工具 search_tools
 
-AgentEngine 总是在 `tools` 中附加一个虚拟工具：
+AgentEngine 会把 L1 工具和一个虚拟 `search_tools` 工具暴露给 LLM：
 
 ```json
 {
@@ -316,22 +314,20 @@ AgentEngine 总是在 `tools` 中附加一个虚拟工具：
     "type": "object",
     "properties": {
       "query": { "type": "string", "description": "搜索关键词" },
-      "domain": { "type": "string", "description": "限制搜索领域" },
-      "limit": { "type": "integer", "description": "返回最大数量，默认5" }
+      "maxResults": { "type": "number", "description": "返回最大数量，默认5" }
     },
     "required": ["query"]
   }
 }
 ```
 
-当 LLM 决定调用 `search_tools` 时，AgentEngine 拦截，执行本地检索（基于名称、描述、标签的匹配打分，或用户注入的语义搜索），将结果列表以 `tool_result` 形式返回给 LLM，LLM 再根据结果选择真正的工具。
+当 LLM 决定调用 `search_tools` 时，AgentEngine 拦截，执行本地关键词检索（基于名称、描述、领域、标签匹配），将结果列表以 tool 消息形式注入上下文，再次请求 LLM。
 
 该过程对前端完全透明，前端只会收到最终的实际 `agent_remote:tool_call`。
 
 ### 8.5 配置选项
 
-- `toolLevelStrategy: 'dynamic'` 开启后，若 L1 工具超过 `maxL1Tools`，引擎会根据使用频率自动降级部分工具为 L2。
-- `searchToolFn` 可自定义检索算法，默认提供关键词匹配。
+- `maxSearchResults` 控制 `search_tools` 默认返回数量。
 
 ---
 
@@ -347,39 +343,42 @@ AgentEngine 总是在 `tools` 中附加一个虚拟工具：
 
 引入 `SessionStore` 和 `MessageBroker` 两个抽象，默认提供内存实现，通过 `@agent-remote/server-redis` 提供 Redis 实现。
 
-- **RedisStore**：将 `SessionData` 持久化到 Redis，支持 TTL 和故障恢复。
-- **RedisBroker**：基于 Redis Pub/Sub 实现跨实例消息路由。发布的消息仍然是 `agent_remote:` 前缀的协议消息。
+- **RedisSessionStore**：将 `SessionData` 以 JSON 形式持久化到 Redis。
+- **RedisMessageBroker**：基于 Redis Pub/Sub 实现跨实例消息路由。发布的消息仍然是 `agent_remote:` 前缀的协议消息，并携带 broker instance id 以避免自发布回环。
 
 #### 部署模式
 
-1. **粘性会话（推荐）**：负载均衡器根据 `session_id` 将请求固定到同一实例，只需 `RedisStore` 保证状态不丢失，性能最优。
-2. **无粘性会话**：任何请求可达任意实例，完全依赖 `RedisStore + RedisBroker`。某实例处理请求后，通过 Pub/Sub 将推送消息转给持有连接的实例。
+1. **粘性会话（推荐）**：负载均衡器根据 `session_id` 将请求固定到同一实例，只需 `RedisSessionStore` 保证状态不丢失，性能最优。
+2. **无粘性会话**：任何请求可达任意实例，完全依赖 `RedisSessionStore + RedisMessageBroker`。某实例处理请求后，通过 Pub/Sub 将推送消息转给持有连接的实例。
 
 ### 9.3 使用方式
 
 单实例（默认）：
 ```typescript
 const engine = new AgentEngine({
-  llmClient: new OpenAILLMClient(),
+  llmClient: new OpenAILLMClient({ apiKey: process.env.OPENAI_API_KEY!, model: 'gpt-4.1-mini' }),
   sessionManager: new SessionManager(new InMemoryStore(), new LocalBroker())
 });
 ```
 
 多实例 Redis：
 ```typescript
-import { RedisStore, RedisBroker } from '@agent-remote/server-redis';
+import { createClient } from 'redis';
+import { RedisSessionStore, RedisMessageBroker, createRedisAgentConfig } from '@agent-remote/server-redis';
 
-const store = new RedisStore({ url: 'redis://...' });
-const broker = new RedisBroker({ url: 'redis://...' });
+const config = createRedisAgentConfig('redis://...');
+const redis = createClient({ url: config.url });
+const redisSubscriber = redis.duplicate();
+await redis.connect();
+await redisSubscriber.connect();
+
+const store = new RedisSessionStore(redis, config);
+const broker = new RedisMessageBroker(redis, redisSubscriber, config);
 const engine = new AgentEngine({
   llmClient,
   sessionManager: new SessionManager(store, broker)
 });
-
-// 启动时订阅跨实例消息
-broker.subscribe((sessionId, msg) => {
-  engine.sessionManager.sendLocal(sessionId, msg);
-});
+await engine.sessionManager.ready();
 ```
 
 适配器代码无需任何修改。
@@ -432,9 +431,29 @@ fastify.listen({ port: 3000 });
 ### 10.5 WebSocket 挂载（与框架无关）
 
 ```typescript
-import { attachWSAgent } from '@agent-remote/server-core/ws';
+import { createWebSocketServerTransport } from '@agent-remote/transport-ws';
 
-attachWSAgent(httpServer, engine);
+webSocketServer.on('connection', (socket, request) => {
+  const sessionId = new URL(request.url!, 'http://localhost').searchParams.get('session_id')!;
+  const transport = createWebSocketServerTransport(socket);
+  const handle = engine.sessionManager.attachTransport(sessionId, transport);
+
+  transport.onMessage(async (message) => {
+    switch (message.type) {
+      case 'agent_remote:register_tools':
+        await engine.handleRegisterTools(sessionId, message.tools);
+        break;
+      case 'agent_remote:user_message':
+        await engine.handleUserMessage(sessionId, message.text);
+        break;
+      case 'agent_remote:tool_result':
+        await engine.handleToolResult(sessionId, message);
+        break;
+    }
+  });
+
+  socket.on('close', () => engine.sessionManager.detachTransport(sessionId, handle));
+});
 ```
 
 ---
@@ -445,18 +464,11 @@ attachWSAgent(httpServer, engine);
 
 直接使用内置 `OpenAILLMClient`，工具定义完全兼容 Function Calling 格式，零适配。
 
-### 11.2 LangChain
+### 11.2 LangChain / LangGraph
 
-提供轻量包装（文档示例 + 可选包 `@agent-remote/langchain`）：
+当前版本不提供单独的 LangChain 适配包。需要接入 LangChain / LangGraph 时，使用 `@agent-remote/core` 的 `ToolDefinition` 自行映射到对应框架的 tool 结构，或将 `AgentEngine` 放入服务端图流程节点。
 
-```typescript
-const toolkit = createBrowserToolkit(client); // client 为 BrowserAgentClient
-// toolkit.tools 可直接用于 createOpenAIFunctionsAgent 等
-```
-
-### 11.3 LangGraph
-
-可将 `AgentEngine` 作为节点嵌入图流程，或使用包装后的 LangChain 工具在 `ToolNode` 中使用。
+未来如果新增独立包，会在 package exports 和本文档中同步列出真实入口。
 
 ---
 
@@ -467,19 +479,20 @@ import { useAgentClient } from '@agent-remote/react';
 import { createWSClient } from '@agent-remote/client/ws';
 
 function App() {
-  const { connect, sendMessage, lastMessage, registerTool } = useAgentClient(
-    () => createWSClient('ws://localhost:8080')
+  const agent = useAgentClient(
+    () => createWSClient({ url: 'ws://localhost:8080' }),
+    { disconnectOnUnmount: true }
   );
 
   useEffect(() => {
-    registerTool({ name: 'greet', ... }, async (args) => `Hello ${args.name}`);
-    connect();
+    agent?.registerTool({ name: 'greet', ... }, async (args) => `Hello ${args.name}`);
+    void agent?.connect();
   }, []);
 
   return (
     <div>
-      <button onClick={() => sendMessage('Say hello to World')}>Send</button>
-      <p>Agent: {lastMessage}</p>
+      <button onClick={() => agent?.sendMessage('Say hello to World')}>Send</button>
+      <p>Agent: {agent?.lastMessage}</p>
     </div>
   );
 }
@@ -510,7 +523,10 @@ import { AgentEngine, InMemoryStore, LocalBroker, SessionManager, OpenAILLMClien
 import { createExpressAgentRouter } from '@agent-remote/server-express';
 
 const engine = new AgentEngine({
-  llmClient: new OpenAILLMClient(process.env.OPENAI_API_KEY!),
+  llmClient: new OpenAILLMClient({
+    apiKey: process.env.OPENAI_API_KEY!,
+    model: 'gpt-4.1-mini'
+  }),
   sessionManager: new SessionManager(new InMemoryStore(), new LocalBroker())
 });
 
@@ -525,6 +541,7 @@ app.listen(3000, () => console.log('Agent server running on port 3000'));
 import { createSSEClient } from '@agent-remote/client/sse';
 
 const client = createSSEClient({
+  kind: 'sse',
   sseUrl: '/sse',
   postUrls: {
     registerTools: '/api/register_tools',

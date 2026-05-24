@@ -33,6 +33,7 @@ export interface FastifyAgentReply {
   code(statusCode: number): FastifyAgentReply;
   header(name: string, value: string): FastifyAgentReply;
   send(body?: unknown): FastifyAgentReply | void;
+  hijack?(): FastifyAgentReply | void;
 }
 
 export type FastifyAgentHandler = (
@@ -140,6 +141,7 @@ function handleSse(
   reply.header("cache-control", "no-cache, no-transform");
   reply.header("connection", "keep-alive");
   reply.header("x-accel-buffering", "no");
+  reply.hijack?.();
   reply.raw.write(": connected\n\n");
 
   const raw = reply.raw;
@@ -155,9 +157,9 @@ function handleSse(
     }
   };
 
-  engine.sessionManager.attachTransport(sessionId, transport);
+  const handle = engine.sessionManager.attachTransport(sessionId, transport);
   request.raw?.on?.("close", () => {
-    engine.sessionManager?.detachTransport(sessionId);
+    engine.sessionManager?.detachTransport(sessionId, handle);
   });
 }
 

@@ -100,6 +100,31 @@ describe("@agent-remote/react", () => {
       code: "tool_error"
     });
   });
+
+  it("does not notify subscribers after unsubscribe", async () => {
+    const transport = new FakeTransport();
+    const client = new BrowserAgentClient(transport);
+    const state = createAgentClientState(client);
+    const snapshots: Array<string | null> = [];
+    const unsubscribe = state?.subscribe(() => snapshots.push(state.lastMessage));
+
+    unsubscribe?.();
+    await transport.emit(createAssistantMessage("Done"));
+
+    expect(state?.lastMessage).toBe("Done");
+    expect(snapshots).toEqual([]);
+  });
+
+  it("disposes client event subscriptions", async () => {
+    const transport = new FakeTransport();
+    const client = new BrowserAgentClient(transport);
+    const state = createAgentClientState(client);
+
+    state?.dispose();
+    await transport.emit(createAssistantMessage("Done"));
+
+    expect(state?.lastMessage).toBeNull();
+  });
 });
 
 class FakeTransport implements TransportConnection {

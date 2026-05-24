@@ -116,6 +116,7 @@ describe("@agent-remote/server-fastify", () => {
     await fastify.routes["GET /sse"](request, reply);
     await sessionManager.sendToSession("session-1", createAssistantMessage("Done"));
 
+    expect(reply.hijacked).toBe(true);
     expect(reply.headers["content-type"]).toBe("text/event-stream");
     expect(reply.raw.chunks.join("")).toContain("agent_remote:assistant_message");
     request.raw?.emit?.("close");
@@ -176,6 +177,7 @@ function createReply(): FastifyAgentReply & {
   headers: Record<string, string>;
   sentBody: unknown;
   raw: EventEmitter & { chunks: string[]; write: (chunk: string) => boolean; end: () => void };
+  hijacked: boolean;
 } {
   const raw = new EventEmitter() as EventEmitter & {
     chunks: string[];
@@ -194,6 +196,7 @@ function createReply(): FastifyAgentReply & {
     headers: {} as Record<string, string>,
     sentBody: undefined as unknown,
     raw,
+    hijacked: false,
     code(statusCode: number) {
       this.statusCode = statusCode;
       return this;
@@ -204,6 +207,10 @@ function createReply(): FastifyAgentReply & {
     },
     send(body?: unknown) {
       this.sentBody = body;
+      return this;
+    },
+    hijack() {
+      this.hijacked = true;
       return this;
     }
   };

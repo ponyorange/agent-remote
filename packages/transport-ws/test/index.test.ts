@@ -5,6 +5,7 @@ import {
   type ProtocolMessage
 } from "@agent-remote/core";
 import {
+  createWebSocketServerTransport,
   createWebSocketTransport,
   createWebSocketTransportConfig,
   type WebSocketLike
@@ -39,8 +40,28 @@ describe("@agent-remote/transport-ws", () => {
     expect(sockets[0]?.url).toBe("ws://localhost:8080");
   });
 
-  it("serializes protocol messages when sending", async () => {
-    const socket = new FakeWebSocket("ws://localhost:8080");
+  it("queues messages until the WebSocket opens", async () => {
+    const socket = new FakeWebSocket("ws://localhost:8080", 0);
+    const transport = createWebSocketTransport(createWebSocketTransportConfig({ url: socket.url }), {
+      createWebSocket: () => socket
+    });
+    const sendPromise = transport.send(createUserMessage("Hello"));
+
+    expect(socket.sent).toEqual([]);
+
+    socket.open();
+    await sendPromise;
+
+    expect(socket.sent).toEqual([
+      JSON.stringify({
+        type: "agent_remote:user_message",
+        text: "Hello"
+      })
+    ]);
+  });
+
+  it("serializes protocol messages immediately when the WebSocket is open", async () => {
+    const socket = new FakeWebSocket("ws://localhost:8080", 1);
     const transport = createWebSocketTransport(createWebSocketTransportConfig({ url: socket.url }), {
       createWebSocket: () => socket
     });
@@ -93,6 +114,37 @@ describe("@agent-remote/transport-ws", () => {
 
     expect(socket.closed).toBe(true);
   });
+
+  it("rejects queued sends when the WebSocket closes before opening", async () => {
+    const socket = new FakeWebSocket("ws://localhost:8080", 0);
+    const transport = createWebSocketTransport(createWebSocketTransportConfig({ url: socket.url }), {
+      createWebSocket: () => socket
+    });
+    const sendPromise = transport.send(createUserMessage("Hello"));
+
+    await transport.close();
+
+    await expect(sendPromise).rejects.toThrow("WebSocket transport closed before opening.");
+  });
+
+  it("wraps an existing server WebSocket as a transport connection", async () => {
+    const socket = new FakeWebSocket("server", 1);
+    const transport = createWebSocketServerTransport(socket);
+    const received: unknown[] = [];
+    const message = createAssistantMessage("Done");
+
+    transport.onMessage((event) => received.push(event));
+    socket.emitMessage(message);
+    await transport.send(createUserMessage("Ack"));
+
+    expect(received).toEqual([message]);
+    expect(socket.sent).toEqual([
+      JSON.stringify({
+        type: "agent_remote:user_message",
+        text: "Ack"
+      })
+    ]);
+  });
 });
 
 class FakeWebSocket implements WebSocketLike {
@@ -100,7 +152,10 @@ class FakeWebSocket implements WebSocketLike {
   readonly listeners = new Map<string, Array<(event: MessageEvent<string>) => void>>();
   closed = false;
 
-  constructor(readonly url: string) {}
+  constructor(
+    readonly url: string,
+    public readyState = 1
+  ) {}
 
   send(data: string): void {
     this.sent.push(data);
@@ -113,7 +168,14 @@ class FakeWebSocket implements WebSocketLike {
   }
 
   close(): void {
+    this.readyState = 3;
     this.closed = true;
+    this.emitRawEvent("close", "");
+  }
+
+  open(): void {
+    this.readyState = 1;
+    this.emitRawEvent("open", "");
   }
 
   emitMessage(message: ProtocolMessage): void {
@@ -121,9 +183,13 @@ class FakeWebSocket implements WebSocketLike {
   }
 
   emitRawMessage(data: string): void {
+    this.emitRawEvent("message", data);
+  }
+
+  private emitRawEvent(type: string, data: string): void {
     const event = { data } as MessageEvent<string>;
 
-    for (const listener of this.listeners.get("message") ?? []) {
+    for (const listener of this.listeners.get(type) ?? []) {
       listener(event);
     }
   }

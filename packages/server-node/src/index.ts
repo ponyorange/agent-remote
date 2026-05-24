@@ -24,6 +24,7 @@ export interface NodeAgentRouterRoutes {
 
 export interface NodeAgentRouterOptions {
   readonly routes?: Partial<NodeAgentRouterRoutes>;
+  readonly maxBodyBytes?: number;
 }
 
 export type NodeAgentRouter = RequestListener;
@@ -43,6 +44,7 @@ export function createNodeAgentRouter(
     ...DEFAULT_ROUTES,
     ...options.routes
   };
+  const maxBodyBytes = options.maxBodyBytes ?? 1024 * 1024;
 
   return async (request, response) => {
     try {
@@ -54,7 +56,7 @@ export function createNodeAgentRouter(
       }
 
       if (request.method === "POST" && url.pathname === routes.registerTools) {
-        const body = await readJsonBody(request);
+        const body = await readJsonBody(request, maxBodyBytes);
         const sessionId = readSessionId(body);
         const tools = readTools(body);
         await engine.handleRegisterTools(sessionId, tools);
@@ -63,7 +65,7 @@ export function createNodeAgentRouter(
       }
 
       if (request.method === "POST" && url.pathname === routes.chat) {
-        const body = await readJsonBody(request);
+        const body = await readJsonBody(request, maxBodyBytes);
         const sessionId = readSessionId(body);
         const text = readString(body, "text");
         await engine.handleUserMessage(sessionId, text);
@@ -72,7 +74,7 @@ export function createNodeAgentRouter(
       }
 
       if (request.method === "POST" && url.pathname === routes.toolResult) {
-        const body = await readJsonBody(request);
+        const body = await readJsonBody(request, maxBodyBytes);
         const sessionId = readSessionId(body);
         const result = readToolResult(body);
         await engine.handleToolResult(sessionId, result);
@@ -122,17 +124,28 @@ function handleSse(
     }
   };
 
-  engine.sessionManager.attachTransport(sessionId, transport);
+  const handle = engine.sessionManager.attachTransport(sessionId, transport);
   request.on("close", () => {
-    engine.sessionManager?.detachTransport(sessionId);
+    engine.sessionManager?.detachTransport(sessionId, handle);
   });
 }
 
-async function readJsonBody(request: IncomingMessage): Promise<Record<string, unknown>> {
+async function readJsonBody(
+  request: IncomingMessage,
+  maxBodyBytes: number
+): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
+  let totalBytes = 0;
 
   for await (const chunk of request) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += buffer.byteLength;
+
+    if (totalBytes > maxBodyBytes) {
+      throw new HttpError(413, "Request body is too large");
+    }
+
+    chunks.push(buffer);
   }
 
   const rawBody = Buffer.concat(chunks).toString("utf8");

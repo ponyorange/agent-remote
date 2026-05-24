@@ -110,6 +110,28 @@ describe("@agent-remote/core", () => {
     ]);
   });
 
+  it("normalizes tools when creating register_tools protocol messages", () => {
+    expect(
+      createRegisterToolsMessage([
+        {
+          name: "export_csv",
+          description: "Export table data",
+          parameters: { type: "object" }
+        }
+      ])
+    ).toEqual({
+      type: "agent_remote:register_tools",
+      tools: [
+        {
+          name: "export_csv",
+          description: "Export table data",
+          parameters: { type: "object" },
+          level: "L1"
+        }
+      ]
+    });
+  });
+
   it("validates known protocol messages and rejects unknown namespaced messages", () => {
     expect(validateProtocolMessage(createUserMessage("Hello")).ok).toBe(true);
 

@@ -22,6 +22,7 @@ export interface AgentClientState<TClient extends BrowserAgentClient> {
   sendMessage(text: string): Promise<void>;
   registerTool(definition: ToolDefinition, handler: ToolHandler): void;
   subscribe(listener: () => void): () => void;
+  dispose(): void;
 }
 
 export function createAgentClientState<TClient extends BrowserAgentClient>(
@@ -36,21 +37,20 @@ export function createAgentClientState<TClient extends BrowserAgentClient>(
   let lastMessage: string | null = null;
   let error: AgentClientError | null = null;
   const listeners = new Set<() => void>();
+  const unsubscribeClientMessage = client.on("message", (message) => {
+    lastMessage = message;
+    notify();
+  });
+  const unsubscribeClientError = client.on("error", (clientError) => {
+    status = "error";
+    error = clientError;
+    notify();
+  });
   const notify = () => {
     for (const listener of listeners) {
       listener();
     }
   };
-
-  client.on("message", (message) => {
-    lastMessage = message;
-    notify();
-  });
-  client.on("error", (clientError) => {
-    status = "error";
-    error = clientError;
-    notify();
-  });
 
   return {
     get client() {
@@ -98,6 +98,11 @@ export function createAgentClientState<TClient extends BrowserAgentClient>(
       return () => {
         listeners.delete(listener);
       };
+    },
+    dispose() {
+      unsubscribeClientMessage();
+      unsubscribeClientError();
+      listeners.clear();
     }
   };
 }
@@ -117,7 +122,12 @@ export function useAgentClient<TClient extends BrowserAgentClient>(
       return undefined;
     }
 
-    return state.subscribe(() => forceUpdate((version) => version + 1));
+    const unsubscribe = state.subscribe(() => forceUpdate((version) => version + 1));
+
+    return () => {
+      unsubscribe();
+      state.dispose();
+    };
   }, [state]);
 
   useEffect(() => {

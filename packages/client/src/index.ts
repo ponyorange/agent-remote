@@ -20,6 +20,7 @@ export interface BrowserAgentClientEvents {
 }
 
 export type BrowserAgentClientEvent = keyof BrowserAgentClientEvents;
+export type Unsubscribe = () => void;
 
 interface RegisteredTool {
   definition: ToolDefinition;
@@ -93,10 +94,15 @@ export class BrowserAgentClient {
   on<TEvent extends BrowserAgentClientEvent>(
     event: TEvent,
     handler: (data: BrowserAgentClientEvents[TEvent]) => void
-  ): void {
+  ): Unsubscribe {
     const handlers = this.eventHandlers.get(event) ?? new Set();
-    handlers.add(handler as (data: BrowserAgentClientEvents[BrowserAgentClientEvent]) => void);
+    const listener = handler as (data: BrowserAgentClientEvents[BrowserAgentClientEvent]) => void;
+    handlers.add(listener);
     this.eventHandlers.set(event, handlers);
+
+    return () => {
+      handlers.delete(listener);
+    };
   }
 
   async disconnect(): Promise<void> {

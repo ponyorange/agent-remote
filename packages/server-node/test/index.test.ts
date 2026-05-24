@@ -101,6 +101,24 @@ describe("@agent-remote/server-node", () => {
     });
   });
 
+  it("rejects request bodies that exceed the configured byte limit", async () => {
+    const baseUrl = await listen(createNodeAgentRouter(createEngine(), { maxBodyBytes: 10 }));
+
+    const response = await fetch(`${baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "session-1",
+        text: "This body is too large"
+      })
+    });
+
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Request body is too large"
+    });
+  });
+
   it("returns not found for unknown routes", async () => {
     const baseUrl = await listen(createNodeAgentRouter(createEngine()));
 

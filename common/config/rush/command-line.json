@@ -12,8 +12,8 @@
     {
       "name": "lint",
       "commandKind": "bulk",
-      "summary": "Lint all packages",
-      "description": "Run ESLint across all @agent-remote packages.",
+      "summary": "Typecheck all packages",
+      "description": "Run TypeScript no-emit checks across all @agent-remote packages.",
       "enableParallelism": true,
       "ignoreMissingScript": false
     }
