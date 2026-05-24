@@ -1,4 +1,4 @@
-# @agent-remote/transport-sse
+# agent-remote-transport-sse
 
 Language: English | [简体中文](README.zh-CN.md)
 
@@ -7,15 +7,15 @@ Browser-side SSE transport for Agent Remote. Server-to-client messages arrive th
 ## Installation
 
 ```bash
-npm install @agent-remote/transport-sse @agent-remote/core
+npm install agent-remote-transport-sse agent-remote-core
 ```
 
-You usually use it through `@agent-remote/client/sse` instead of creating the transport directly.
+You usually use it through `agent-remote-client/sse` instead of creating the transport directly.
 
 ## Basic Usage
 
 ```ts
-import { createSseTransport } from "@agent-remote/transport-sse";
+import { createSseTransport } from "agent-remote-transport-sse";
 
 const transport = createSseTransport({
   kind: "sse",

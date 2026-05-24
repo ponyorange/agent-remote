@@ -1,29 +1,29 @@
-# @agent-remote/client
+# agent-remote-client
 
 语言：[English](README.md) | 简体中文
 
-`@agent-remote/client` 是框架无关的浏览器 SDK，用于注册页面工具、连接 Agent Remote 服务端、发送用户消息，并执行服务端请求的工具调用。
+`agent-remote-client` 是框架无关的浏览器 SDK，用于注册页面工具、连接 Agent Remote 服务端、发送用户消息，并执行服务端请求的工具调用。
 
 ## 安装
 
 ```bash
-npm install @agent-remote/client
+npm install agent-remote-client
 ```
 
-如果你使用 React，通常会同时安装 `@agent-remote/react`。
+如果你使用 React，通常会同时安装 `agent-remote-react`。
 
 ## 入口
 
-- `@agent-remote/client`: 导出 `BrowserAgentClient`、`ToolRegistry` 和核心客户端类型。
-- `@agent-remote/client/sse`: 导出 `createSSEClient` 和 `createSSEClientConfig`。
-- `@agent-remote/client/ws`: 导出 `createWSClient` 和 `createWSClientConfig`。
+- `agent-remote-client`: 导出 `BrowserAgentClient`、`ToolRegistry` 和核心客户端类型。
+- `agent-remote-client/sse`: 导出 `createSSEClient` 和 `createSSEClientConfig`。
+- `agent-remote-client/ws`: 导出 `createWSClient` 和 `createWSClientConfig`。
 
 ## SSE 用法
 
 SSE client 使用 SSE 接收服务端消息，并用 HTTP POST 发送工具注册、用户消息和工具结果。
 
 ```ts
-import { createSSEClient } from "@agent-remote/client/sse";
+import { createSSEClient } from "agent-remote-client/sse";
 
 const client = createSSEClient({
   kind: "sse",
@@ -83,7 +83,7 @@ await client.sendUserMessage("Change the background to blue");
 WebSocket 适合服务端和浏览器之间都可以保持双向连接的场景。
 
 ```ts
-import { createWSClient } from "@agent-remote/client/ws";
+import { createWSClient } from "agent-remote-client/ws";
 
 const client = createWSClient({
   url: "ws://localhost:3000/agent",

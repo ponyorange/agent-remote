@@ -1,13 +1,13 @@
-# @agent-remote/react
+# agent-remote-react
 
 语言：[English](README.md) | 简体中文
 
-`@agent-remote/react` 提供 React hook 和状态管理辅助函数，用于在组件生命周期内管理 `BrowserAgentClient`。
+`agent-remote-react` 提供 React hook 和状态管理辅助函数，用于在组件生命周期内管理 `BrowserAgentClient`。
 
 ## 安装
 
 ```bash
-npm install @agent-remote/react @agent-remote/client
+npm install agent-remote-react agent-remote-client
 ```
 
 `react` 是 peer dependency，要求 `react >=18.0.0`。
@@ -22,8 +22,8 @@ npm install @agent-remote/react @agent-remote/client
 
 ```tsx
 import { useCallback, useEffect } from "react";
-import { createSSEClient } from "@agent-remote/client/sse";
-import { useAgentClient } from "@agent-remote/react";
+import { createSSEClient } from "agent-remote-client/sse";
+import { useAgentClient } from "agent-remote-react";
 
 export function AgentWidget() {
   const createClient = useCallback(
@@ -104,7 +104,7 @@ const agent = useAgentClient(createClient, options);
 如果你需要在 React hook 之外测试或复用状态逻辑，可以直接使用 `createAgentClientState`。
 
 ```ts
-import { createAgentClientState } from "@agent-remote/react";
+import { createAgentClientState } from "agent-remote-react";
 
 const state = createAgentClientState(client, { autoConnect: false });
 state?.registerTool(definition, handler);

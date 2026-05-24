@@ -19,7 +19,7 @@ import {
   type ToolDefinition
 } from "../src/index";
 
-describe("@agent-remote/core", () => {
+describe("agent-remote-core", () => {
   it("recognizes namespaced protocol messages", () => {
     expect(isAgentRemoteMessage({ type: "agent_remote:tool_call", callId: "call-1" })).toBe(true);
   });

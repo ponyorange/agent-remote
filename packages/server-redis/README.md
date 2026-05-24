@@ -1,4 +1,4 @@
-# @agent-remote/server-redis
+# agent-remote-server-redis
 
 Language: English | [简体中文](README.zh-CN.md)
 
@@ -7,7 +7,7 @@ Redis-backed session storage and message brokering for multi-instance Agent Remo
 ## Installation
 
 ```bash
-npm install @agent-remote/server-redis @agent-remote/server-core redis
+npm install agent-remote-server-redis agent-remote-server-core redis
 ```
 
 `redis` is a peer dependency and must be `redis >=4.6.0`.
@@ -23,12 +23,12 @@ npm install @agent-remote/server-redis @agent-remote/server-core redis
 
 ```ts
 import { createClient } from "redis";
-import { SessionManager } from "@agent-remote/server-core";
+import { SessionManager } from "agent-remote-server-core";
 import {
   RedisMessageBroker,
   RedisSessionStore,
   createRedisAgentConfig
-} from "@agent-remote/server-redis";
+} from "agent-remote-server-redis";
 
 const config = createRedisAgentConfig(process.env.REDIS_URL!, "agent-remote");
 

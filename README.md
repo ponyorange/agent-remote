@@ -2,7 +2,7 @@
 
 Language: English | [简体中文](README.zh-CN.md)
 
-`@agent-remote` is a Rush-managed TypeScript monorepo for exposing browser-side application tools to AI agents through transport-agnostic client and server SDKs.
+`agent-remote` is a Rush-managed TypeScript monorepo for exposing browser-side application tools to AI agents through transport-agnostic client and server SDKs.
 
 ## Use Cases
 
@@ -19,22 +19,22 @@ This repository uses Rush + pnpm. Start by installing dependencies, building all
 npm install -g @microsoft/rush@5.120.0
 rush install
 rush build
-rush test -t @agent-remote/example-express-sse-react
+rush test -t agent-remote-example-express-sse-react
 ```
 
 The runnable demo lives in `examples/express-sse-react`. It uses published package entry points, opens an SSE stream, registers a low-risk browser tool, and verifies that the server can stream an `agent_remote:tool_call`.
 
 ## Architecture
 
-1. Browser applications create a client with `@agent-remote/client` or `@agent-remote/react`.
+1. Browser applications create a client with `agent-remote-client` or `agent-remote-react`.
 2. The client registers `ToolDefinition` objects and connects to the server through SSE or WebSocket.
 3. Server adapters receive tool registrations, user messages, and tool results.
-4. `@agent-remote/server-core` manages sessions, LLM orchestration, tool policy, tool search, and outbound tool calls.
+4. `agent-remote-server-core` manages sessions, LLM orchestration, tool policy, tool search, and outbound tool calls.
 5. The browser executes the requested tool and returns a `ToolResult`, then the server continues the LLM loop.
 
 ## Protocol Messages
 
-`@agent-remote/core` defines protocol version `AGENT_REMOTE_PROTOCOL_VERSION = "0.1.0"`. All protocol message types use the `agent_remote:` prefix.
+`agent-remote-core` defines protocol version `AGENT_REMOTE_PROTOCOL_VERSION = "0.1.0"`. All protocol message types use the `agent_remote:` prefix.
 
 - `agent_remote:hello`: WebSocket handshake message.
 - `agent_remote:hello_ack`: WebSocket handshake acknowledgement.
@@ -49,44 +49,77 @@ The runnable demo lives in `examples/express-sse-react`. It uses published packa
 
 Core protocol and types:
 
-- `@agent-remote/core`: Shared protocol types, message factories, structural validation, and transport contracts.
+- `agent-remote-core`: Shared protocol types, message factories, structural validation, and transport contracts.
 
 Browser side:
 
-- `@agent-remote/client`: Framework-agnostic browser SDK for tool registration, user messages, and server-requested tool calls.
-- `@agent-remote/react`: React hooks and state helpers for binding the Agent Remote client lifecycle to components.
+- `agent-remote-client`: Framework-agnostic browser SDK for tool registration, user messages, and server-requested tool calls.
+- `agent-remote-react`: React hooks and state helpers for binding the Agent Remote client lifecycle to components.
 
 Transports:
 
-- `@agent-remote/transport-sse`: Browser transport that receives server messages over SSE and sends client messages through HTTP POST.
-- `@agent-remote/transport-ws`: WebSocket transport with bidirectional messaging, reconnect support, and server-side socket wrapping.
+- `agent-remote-transport-sse`: Browser transport that receives server messages over SSE and sends client messages through HTTP POST.
+- `agent-remote-transport-ws`: WebSocket transport with bidirectional messaging, reconnect support, and server-side socket wrapping.
 
 Server side:
 
-- `@agent-remote/server-core`: Framework-agnostic server core with `AgentEngine`, `SessionManager`, in-memory storage, LLM interfaces, and an OpenAI-compatible client.
-- `@agent-remote/server-express`: Express router adapter for SSE and HTTP POST endpoints.
-- `@agent-remote/server-fastify`: Fastify plugin exposing the same Agent Remote endpoints.
-- `@agent-remote/server-node`: Native Node.js HTTP router for framework-free services.
-- `@agent-remote/server-redis`: Redis session store and message broker for multi-instance deployments.
+- `agent-remote-server-core`: Framework-agnostic server core with `AgentEngine`, `SessionManager`, in-memory storage, LLM interfaces, and an OpenAI-compatible client.
+- `agent-remote-server-express`: Express router adapter for SSE and HTTP POST endpoints.
+- `agent-remote-server-fastify`: Fastify plugin exposing the same Agent Remote endpoints.
+- `agent-remote-server-node`: Native Node.js HTTP router for framework-free services.
+- `agent-remote-server-redis`: Redis session store and message broker for multi-instance deployments.
 
 Example:
 
-- `@agent-remote/example-express-sse-react`: Private example project demonstrating the Express + SSE + React end-to-end flow.
+- `agent-remote-example-express-sse-react`: Private example project demonstrating the Express + SSE + React end-to-end flow.
 
 ## Package Selection
 
-- Non-React browser app: install `@agent-remote/client` and choose `@agent-remote/client/sse` or `@agent-remote/client/ws`.
-- React app: install `@agent-remote/react` and `@agent-remote/client`, then use `useAgentClient` for connection state and cleanup.
-- Express service: install `@agent-remote/server-core` and `@agent-remote/server-express`.
-- Fastify service: install `@agent-remote/server-core` and `@agent-remote/server-fastify`.
-- Native Node HTTP service: install `@agent-remote/server-core` and `@agent-remote/server-node`.
+- Non-React browser app: install `agent-remote-client` and choose `agent-remote-client/sse` or `agent-remote-client/ws`.
+- React app: install `agent-remote-react` and `agent-remote-client`, then use `useAgentClient` for connection state and cleanup.
+- Express service: install `agent-remote-server-core` and `agent-remote-server-express`.
+- Fastify service: install `agent-remote-server-core` and `agent-remote-server-fastify`.
+- Native Node HTTP service: install `agent-remote-server-core` and `agent-remote-server-node`.
 - Single-instance service: use `InMemoryStore` and `LocalBroker`.
-- Multi-instance service: add `@agent-remote/server-redis` for Redis-backed sessions and cross-instance messages.
+- Multi-instance service: add `agent-remote-server-redis` for Redis-backed sessions and cross-instance messages.
+
+## npm Package Usage
+
+Install only the packages required by your runtime:
+
+```bash
+# Browser client with SSE or WebSocket helpers
+npm install agent-remote-client
+
+# React integration
+npm install agent-remote-react agent-remote-client
+
+# Express server adapter
+npm install agent-remote-server-core agent-remote-server-express express
+
+# Fastify server adapter
+npm install agent-remote-server-core agent-remote-server-fastify fastify
+
+# Native Node HTTP adapter
+npm install agent-remote-server-core agent-remote-server-node
+
+# Redis-backed multi-instance deployment
+npm install agent-remote-server-redis redis
+```
+
+Import the package that matches your app layer:
+
+```ts
+import { createSSEClient } from "agent-remote-client/sse";
+import { useAgentClient } from "agent-remote-react";
+import { AgentEngine, SessionManager } from "agent-remote-server-core";
+import { createExpressAgentRouter } from "agent-remote-server-express";
+```
 
 ## Minimal Browser Client
 
 ```ts
-import { createSSEClient } from "@agent-remote/client/sse";
+import { createSSEClient } from "agent-remote-client/sse";
 
 const client = createSSEClient({
   kind: "sse",
@@ -132,8 +165,8 @@ High-risk tools trigger confirmation: when a tool definition uses `risk: "high"`
 
 ```ts
 import express from "express";
-import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "@agent-remote/server-core";
-import { createExpressAgentRouter } from "@agent-remote/server-express";
+import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "agent-remote-server-core";
+import { createExpressAgentRouter } from "agent-remote-server-express";
 
 const sessionManager = new SessionManager(new InMemoryStore(), new LocalBroker());
 const engine = new AgentEngine({
@@ -193,9 +226,9 @@ rush lint
 Run one package:
 
 ```bash
-rush build -t @agent-remote/client
-rush test -t @agent-remote/example-express-sse-react
-rush lint -t @agent-remote/server-core
+rush build -t agent-remote-client
+rush test -t agent-remote-example-express-sse-react
+rush lint -t agent-remote-server-core
 ```
 
 `rush lint` currently runs each package's `tsc --noEmit` script. ESLint is not part of the default gate.
@@ -210,7 +243,7 @@ rush version-packages
 rush publish-packages
 ```
 
-Public packages under `packages/*` set `publishConfig.access = "public"`. The example package `@agent-remote/example-express-sse-react` is private and is not published to npm.
+Public packages under `packages/*` set `publishConfig.access = "public"`. The example package `agent-remote-example-express-sse-react` is private and is not published to npm.
 
 ## Compatibility
 

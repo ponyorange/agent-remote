@@ -1,7 +1,7 @@
 {
-  "name": "@agent-remote/client",
+  "name": "agent-remote-client",
   "version": "0.1.0",
-  "description": "Browser client SDK for registering tools and connecting to @agent-remote backends.",
+  "description": "Browser client SDK for registering tools and connecting to agent-remote backends.",
   "license": "MIT",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -35,9 +35,9 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@agent-remote/core": "workspace:*",
-    "@agent-remote/transport-sse": "workspace:*",
-    "@agent-remote/transport-ws": "workspace:*"
+    "agent-remote-core": "workspace:*",
+    "agent-remote-transport-sse": "workspace:*",
+    "agent-remote-transport-ws": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

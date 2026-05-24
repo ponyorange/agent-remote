@@ -1,4 +1,4 @@
-# @agent-remote/transport-ws
+# agent-remote-transport-ws
 
 Language: English | [简体中文](README.zh-CN.md)
 
@@ -7,15 +7,15 @@ WebSocket transport for Agent Remote browser clients and server-side WebSocket c
 ## Installation
 
 ```bash
-npm install @agent-remote/transport-ws @agent-remote/core
+npm install agent-remote-transport-ws agent-remote-core
 ```
 
-You usually use it through the browser wrapper from `@agent-remote/client/ws`.
+You usually use it through the browser wrapper from `agent-remote-client/ws`.
 
 ## Browser Usage
 
 ```ts
-import { createWebSocketTransport, createWebSocketTransportConfig } from "@agent-remote/transport-ws";
+import { createWebSocketTransport, createWebSocketTransportConfig } from "agent-remote-transport-ws";
 
 const transport = createWebSocketTransport(createWebSocketTransportConfig({
   url: "ws://localhost:3000/agent",
@@ -34,7 +34,7 @@ transport.onMessage((message) => {
 If your server framework already provides a WebSocket-like socket, wrap it with `createWebSocketServerTransport` to get a standard `TransportConnection`.
 
 ```ts
-import { createWebSocketServerTransport } from "@agent-remote/transport-ws";
+import { createWebSocketServerTransport } from "agent-remote-transport-ws";
 
 const transport = createWebSocketServerTransport(socket);
 sessionManager.attachTransport("session-1", transport);

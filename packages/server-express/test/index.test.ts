@@ -1,10 +1,10 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
-import { createAssistantMessage } from "@agent-remote/core";
-import { SessionManager } from "@agent-remote/server-core";
+import { createAssistantMessage } from "agent-remote-core";
+import { SessionManager } from "agent-remote-server-core";
 import { createExpressAgentRouter, type ExpressAgentEngine, type ExpressAgentRequest } from "../src/index";
 
-describe("@agent-remote/server-express", () => {
+describe("agent-remote-server-express", () => {
   it("routes register tools requests to the engine", async () => {
     const engine = createEngine();
     const router = createExpressAgentRouter(engine);

@@ -3,7 +3,7 @@ import {
   createSseTransportConfig,
   type SseTransportConfig,
   type SseTransportDependencies
-} from "@agent-remote/transport-sse";
+} from "agent-remote-transport-sse";
 import { BrowserAgentClient, type BrowserAgentClientOptions } from "./index";
 
 export { createSseTransportConfig as createSSEClientConfig };

@@ -1,8 +1,8 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createAssistantMessage } from "@agent-remote/core";
-import { SessionManager } from "@agent-remote/server-core";
+import { createAssistantMessage } from "agent-remote-core";
+import { SessionManager } from "agent-remote-server-core";
 import { createNodeAgentRouter, type NodeAgentEngine } from "../src/index";
 
 const servers: http.Server[] = [];
@@ -18,7 +18,7 @@ afterEach(async () => {
   );
 });
 
-describe("@agent-remote/server-node", () => {
+describe("agent-remote-server-node", () => {
   it("routes register tools requests to the engine", async () => {
     const engine = createEngine();
     const baseUrl = await listen(createNodeAgentRouter(engine));

@@ -5,12 +5,12 @@ import {
   createToolCallMessage,
   type ProtocolMessage,
   type TransportConnection
-} from "@agent-remote/core";
+} from "agent-remote-core";
 import { createSSEClient } from "../src/sse";
 import { createWSClient } from "../src/ws";
 import { BrowserAgentClient, ToolRegistry } from "../src/index";
 
-describe("@agent-remote/client", () => {
+describe("agent-remote-client", () => {
   it("registers and executes browser tools", async () => {
     const registry = new ToolRegistry();
     registry.register(

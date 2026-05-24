@@ -1,7 +1,7 @@
 {
-  "name": "@agent-remote/transport-ws",
+  "name": "agent-remote-transport-ws",
   "version": "0.1.0",
-  "description": "WebSocket transport package for @agent-remote.",
+  "description": "WebSocket transport package for agent-remote.",
   "license": "MIT",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -25,7 +25,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@agent-remote/core": "workspace:*"
+    "agent-remote-core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

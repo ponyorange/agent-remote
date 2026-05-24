@@ -1,7 +1,7 @@
 {
-  "name": "@agent-remote/core",
+  "name": "agent-remote-core",
   "version": "0.1.0",
-  "description": "Shared protocol types and transport contracts for @agent-remote.",
+  "description": "Shared protocol types and transport contracts for agent-remote.",
   "license": "MIT",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

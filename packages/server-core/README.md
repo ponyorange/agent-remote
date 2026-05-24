@@ -1,4 +1,4 @@
-# @agent-remote/server-core
+# agent-remote-server-core
 
 Language: English | [简体中文](README.zh-CN.md)
 
@@ -7,17 +7,17 @@ Framework-agnostic server primitives for Agent Remote: session management, messa
 ## Installation
 
 ```bash
-npm install @agent-remote/server-core
+npm install agent-remote-server-core
 ```
 
 Server applications usually also need one adapter:
 
 ```bash
-npm install @agent-remote/server-express
+npm install agent-remote-server-express
 # or
-npm install @agent-remote/server-fastify
+npm install agent-remote-server-fastify
 # or
-npm install @agent-remote/server-node
+npm install agent-remote-server-node
 ```
 
 ## When To Use
@@ -48,7 +48,7 @@ import {
   LocalBroker,
   SessionManager,
   type LLMClient
-} from "@agent-remote/server-core";
+} from "agent-remote-server-core";
 
 const llmClient: LLMClient = {
   async chat(request) {
@@ -91,7 +91,7 @@ Adapters call:
 ## OpenAI-Compatible Client
 
 ```ts
-import { OpenAILLMClient } from "@agent-remote/server-core";
+import { OpenAILLMClient } from "agent-remote-server-core";
 
 const llmClient = new OpenAILLMClient({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -108,7 +108,7 @@ Optional `baseUrl` supports OpenAI-compatible gateways or private deployments. O
 ## Sessions And Multi-Instance Deployments
 
 - Single-instance services can use `InMemoryStore` and `LocalBroker`.
-- Multi-instance services should use `RedisSessionStore` and `RedisMessageBroker` from `@agent-remote/server-redis`.
+- Multi-instance services should use `RedisSessionStore` and `RedisMessageBroker` from `agent-remote-server-redis`.
 - `SessionManager.attachTransport()` binds an SSE or WebSocket connection to a session.
 - `SessionManager.sendToSession()` sends to local connections and publishes through the broker for other instances.
 

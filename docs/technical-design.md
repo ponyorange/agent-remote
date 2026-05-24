@@ -1,6 +1,6 @@
 ---
 
-# @agent-remote 技术方案
+# agent-remote 技术方案
 
 ## 让 AI Agent 安全、高效地调用浏览器端工具
 
@@ -14,7 +14,7 @@
 
 ### 1.2 目标
 
-**@agent-remote** 提供一套完整的、传输无关的前后端 SDK，使 AI Agent 能够：
+**agent-remote** 提供一套完整的、传输无关的前后端 SDK，使 AI Agent 能够：
 
 - 动态发现浏览器中注册的任意工具（由网页开发者定义）
 - 通过安全的双向通道向浏览器下发工具调用指令
@@ -26,7 +26,7 @@
 
 ### 1.3 与竞品的差异
 
-| 维度 | 浏览器自动化方案（MCP） | @agent-remote |
+| 维度 | 浏览器自动化方案（MCP） | agent-remote |
 |------|------------------------|---------------|
 | 操控对象 | 独立浏览器访问外部网站 | 嵌入到已有 Web 应用中操作自身 |
 | 工具来源 | 浏览器原生能力（点击、导航） | 业务方自定义的业务工具（导出、修改配置） |
@@ -42,7 +42,7 @@
  │       浏览器              │◄───────────────────────────────────────────►│       后端 Agent 服务        │
  │                          │                                            │                            │
  │  ┌────────────────────┐  │                                            │  ┌──────────────────────┐  │
- │  │ @agent-remote/     │  │   agent_remote:register_tools             │  │ @agent-remote/       │  │
+│  │ agent-remote-client │  │   agent_remote:register_tools             │  │ agent-remote-server-core │  │
  │  │     client         │  │   agent_remote:tool_call (SSE 推送)       │  │    server-core       │  │
  │  │                    │  │   agent_remote:tool_result (POST)        │  │                      │  │
  │  │  ToolRegistry      │  │   agent_remote:user_message /            │  │ SessionStore         │  │
@@ -63,20 +63,43 @@
 
 ## 3. 包结构
 
-采用 pnpm monorepo，组织名为 `@agent-remote`，各包职责如下：
+采用 pnpm monorepo，公开包使用无 scope 的 `agent-remote-*` 命名，各包职责如下：
 
 | 包名 | 描述 | 依赖 |
 |------|------|------|
-| `@agent-remote/core` | 共享类型、传输接口、JSON Schema 工具 | - |
-| `@agent-remote/transport-ws` | WebSocket 传输层实现（前后端通用） | core |
-| `@agent-remote/transport-sse` | SSE+HTTP 传输层实现（前后端通用） | core |
-| `@agent-remote/client` | 浏览器端 SDK（工具注册、执行、连接管理） | core, transport-* |
-| `@agent-remote/server-core` | 服务端核心（会话管理、LLM 编排、工具检索） | core |
-| `@agent-remote/server-express` | Express 适配器 | server-core, transport-sse |
-| `@agent-remote/server-fastify` | Fastify 适配器 | server-core, transport-sse |
-| `@agent-remote/server-node` | 原生 HTTP 适配器（兼容 Koa） | server-core, transport-sse |
-| `@agent-remote/server-redis` | Redis 会话存储与消息代理 | server-core |
-| `@agent-remote/react` | React Hooks | client |
+| `agent-remote-core` | 共享类型、传输接口、JSON Schema 工具 | - |
+| `agent-remote-transport-ws` | WebSocket 传输层实现（前后端通用） | core |
+| `agent-remote-transport-sse` | SSE+HTTP 传输层实现（前后端通用） | core |
+| `agent-remote-client` | 浏览器端 SDK（工具注册、执行、连接管理） | core, transport-* |
+| `agent-remote-server-core` | 服务端核心（会话管理、LLM 编排、工具检索） | core |
+| `agent-remote-server-express` | Express 适配器 | server-core, transport-sse |
+| `agent-remote-server-fastify` | Fastify 适配器 | server-core, transport-sse |
+| `agent-remote-server-node` | 原生 HTTP 适配器（兼容 Koa） | server-core, transport-sse |
+| `agent-remote-server-redis` | Redis 会话存储与消息代理 | server-core |
+| `agent-remote-react` | React Hooks | client |
+
+### 3.1 npm 包使用教程
+
+消费者按运行环境安装所需包。浏览器端只需要客户端包，服务端选择对应 Web 框架适配器，多实例部署再加入 Redis 包：
+
+```bash
+npm install agent-remote-client
+npm install agent-remote-react agent-remote-client
+npm install agent-remote-server-core agent-remote-server-express express
+npm install agent-remote-server-core agent-remote-server-fastify fastify
+npm install agent-remote-server-core agent-remote-server-node
+npm install agent-remote-server-redis redis
+```
+
+主要入口示例：
+
+```ts
+import { createSSEClient } from "agent-remote-client/sse";
+import { createWSClient } from "agent-remote-client/ws";
+import { useAgentClient } from "agent-remote-react";
+import { AgentEngine, SessionManager } from "agent-remote-server-core";
+import { createExpressAgentRouter } from "agent-remote-server-express";
+```
 
 ---
 
@@ -126,7 +149,7 @@ interface ToolDefinition {
 
 ### 5.1 抽象接口
 
-定义在 `@agent-remote/core` 中，屏蔽具体传输细节：
+定义在 `agent-remote-core` 中，屏蔽具体传输细节：
 
 ```typescript
 interface TransportConnection {
@@ -153,11 +176,11 @@ interface TransportConnection {
 - `AgentEngineOptions.observer.onLLMRequest/onLLMResponse/onToolCall` 可转接到 pino、winston、OTel span 或自定义 metrics。
 - `BrowserAgentClientOptions.onProtocolDrop` 会报告非法协议消息，避免静默丢弃难以排查。
 - `RedisMessageBrokerOptions.onProtocolDrop` 会报告 Redis broker 收到的 malformed payload。
-- `AgentRemoteLogger` 是 `@agent-remote/core` 暴露的最小 logger shape，用于后续 adapter 注入日志实现。
+- `AgentRemoteLogger` 是 `agent-remote-core` 暴露的最小 logger shape，用于后续 adapter 注入日志实现。
 
 ---
 
-## 6. 浏览器端 SDK（@agent-remote/client）
+## 6. 浏览器端 SDK（agent-remote-client）
 
 ### 6.1 ToolRegistry
 
@@ -194,11 +217,11 @@ class BrowserAgentClient {
 
 ```typescript
 // WebSocket 客户端
-import { createWSClient } from '@agent-remote/client/ws';
+import { createWSClient } from 'agent-remote-client/ws';
 const client = createWSClient({ url: 'ws://localhost:8080' });
 
 // SSE 客户端
-import { createSSEClient } from '@agent-remote/client/sse';
+import { createSSEClient } from 'agent-remote-client/sse';
 const client = createSSEClient({
   kind: 'sse',
   sseUrl: '/sse',
@@ -213,9 +236,9 @@ const client = createSSEClient({
 
 ---
 
-## 7. 服务端核心 SDK（@agent-remote/server-core）
+## 7. 服务端核心 SDK（agent-remote-server-core）
 
-完全无框架依赖，仅依赖 `@agent-remote/core`。
+完全无框架依赖，仅依赖 `agent-remote-core`。
 
 ### 7.1 会话存储与消息代理接口
 
@@ -237,7 +260,7 @@ interface MessageBroker {
 }
 ```
 
-默认提供 `InMemoryStore` 和 `LocalBroker`（单实例），亦可使用 `@agent-remote/server-redis`。
+默认提供 `InMemoryStore` 和 `LocalBroker`（单实例），亦可使用 `agent-remote-server-redis`。
 
 ### 7.2 SessionManager
 
@@ -298,7 +321,7 @@ class AgentEngine {
 
 ### 8.1 动机
 
-当工具数量膨胀至上百个，全部放入 LLM 上下文会消耗大量 token 并降低推理质量。@agent-remote 内置了一套高效管理机制。
+当工具数量膨胀至上百个，全部放入 LLM 上下文会消耗大量 token 并降低推理质量。agent-remote 内置了一套高效管理机制。
 
 ### 8.2 分级 (Level)
 
@@ -350,7 +373,7 @@ AgentEngine 会把 L1 工具和一个虚拟 `search_tools` 工具暴露给 LLM�
 
 ### 9.2 解决方案
 
-引入 `SessionStore` 和 `MessageBroker` 两个抽象，默认提供内存实现，通过 `@agent-remote/server-redis` 提供 Redis 实现。
+引入 `SessionStore` 和 `MessageBroker` 两个抽象，默认提供内存实现，通过 `agent-remote-server-redis` 提供 Redis 实现。
 
 - **RedisSessionStore**：将 `SessionData` 以 JSON 形式持久化到 Redis。
 - **RedisMessageBroker**：基于 Redis Pub/Sub 实现跨实例消息路由。发布的消息仍然是 `agent_remote:` 前缀的协议消息，并携带 broker instance id 以避免自发布回环。
@@ -373,7 +396,7 @@ const engine = new AgentEngine({
 多实例 Redis：
 ```typescript
 import { createClient } from 'redis';
-import { RedisSessionStore, RedisMessageBroker, createRedisAgentConfig } from '@agent-remote/server-redis';
+import { RedisSessionStore, RedisMessageBroker, createRedisAgentConfig } from 'agent-remote-server-redis';
 
 const config = createRedisAgentConfig('redis://...');
 const redis = createClient({ url: config.url });
@@ -398,11 +421,11 @@ await engine.sessionManager.ready();
 
 服务端核心无框架依赖，通过以下包适配不同框架。
 
-### 10.1 Node 原生 HTTP（@agent-remote/server-node）
+### 10.1 Node 原生 HTTP（agent-remote-server-node）
 
 ```typescript
 import http from 'http';
-import { createNodeAgentRouter } from '@agent-remote/server-node';
+import { createNodeAgentRouter } from 'agent-remote-server-node';
 
 const router = createNodeAgentRouter(engine);
 http.createServer(router).listen(3000);
@@ -410,11 +433,11 @@ http.createServer(router).listen(3000);
 
 Koa 可直接复用：`app.use(async ctx => router(ctx.req, ctx.res))`。
 
-### 10.2 Express（@agent-remote/server-express）
+### 10.2 Express（agent-remote-server-express）
 
 ```typescript
 import express from 'express';
-import { createExpressAgentRouter } from '@agent-remote/server-express';
+import { createExpressAgentRouter } from 'agent-remote-server-express';
 
 const app = express();
 app.use(express.json());
@@ -422,11 +445,11 @@ app.use(createExpressAgentRouter(engine));
 app.listen(3000);
 ```
 
-### 10.3 Fastify（@agent-remote/server-fastify）
+### 10.3 Fastify（agent-remote-server-fastify）
 
 ```typescript
 import Fastify from 'fastify';
-import { createFastifyAgentPlugin } from '@agent-remote/server-fastify';
+import { createFastifyAgentPlugin } from 'agent-remote-server-fastify';
 
 const fastify = Fastify();
 fastify.register(createFastifyAgentPlugin(engine));
@@ -440,7 +463,7 @@ fastify.listen({ port: 3000 });
 ### 10.5 WebSocket 挂载（与框架无关）
 
 ```typescript
-import { createWebSocketServerTransport } from '@agent-remote/transport-ws';
+import { createWebSocketServerTransport } from 'agent-remote-transport-ws';
 
 webSocketServer.on('connection', (socket, request) => {
   const sessionId = new URL(request.url!, 'http://localhost').searchParams.get('session_id')!;
@@ -475,17 +498,17 @@ webSocketServer.on('connection', (socket, request) => {
 
 ### 11.2 LangChain / LangGraph
 
-当前版本不提供单独的 LangChain 适配包。需要接入 LangChain / LangGraph 时，使用 `@agent-remote/core` 的 `ToolDefinition` 自行映射到对应框架的 tool 结构，或将 `AgentEngine` 放入服务端图流程节点。
+当前版本不提供单独的 LangChain 适配包。需要接入 LangChain / LangGraph 时，使用 `agent-remote-core` 的 `ToolDefinition` 自行映射到对应框架的 tool 结构，或将 `AgentEngine` 放入服务端图流程节点。
 
 未来如果新增独立包，会在 package exports 和本文档中同步列出真实入口。
 
 ---
 
-## 12. React 集成（@agent-remote/react）
+## 12. React 集成（agent-remote-react）
 
 ```tsx
-import { useAgentClient } from '@agent-remote/react';
-import { createWSClient } from '@agent-remote/client/ws';
+import { useAgentClient } from 'agent-remote-react';
+import { createWSClient } from 'agent-remote-client/ws';
 
 function App() {
   const agent = useAgentClient(
@@ -528,8 +551,8 @@ function App() {
 **服务端 (server.ts)**：
 ```typescript
 import express from 'express';
-import { AgentEngine, InMemoryStore, LocalBroker, SessionManager, OpenAILLMClient } from '@agent-remote/server-core';
-import { createExpressAgentRouter } from '@agent-remote/server-express';
+import { AgentEngine, InMemoryStore, LocalBroker, SessionManager, OpenAILLMClient } from 'agent-remote-server-core';
+import { createExpressAgentRouter } from 'agent-remote-server-express';
 
 const engine = new AgentEngine({
   llmClient: new OpenAILLMClient({
@@ -547,7 +570,7 @@ app.listen(3000, () => console.log('Agent server running on port 3000'));
 
 **前端 (client.ts)**：
 ```typescript
-import { createSSEClient } from '@agent-remote/client/sse';
+import { createSSEClient } from 'agent-remote-client/sse';
 
 const client = createSSEClient({
   kind: 'sse',
@@ -584,6 +607,6 @@ client.sendUserMessage('请把背景变成蓝色');
 
 ## 15. 总结
 
-**@agent-remote** 不是又一个浏览器自动化工具，而是一个**让任意 Web 应用向 AI Agent 标准化暴露功能的基础设施**。通过清晰的分层协议、带命名空间的安全消息格式、可插拔传输层、智能的工具检索机制和生产级多实例支持，它大幅降低了构建 AI 驱动 Web 应用的门槛，同时保留了极高的灵活性和扩展性。
+**agent-remote** 不是又一个浏览器自动化工具，而是一个**让任意 Web 应用向 AI Agent 标准化暴露功能的基础设施**。通过清晰的分层协议、带命名空间的安全消息格式、可插拔传输层、智能的工具检索机制和生产级多实例支持，它大幅降低了构建 AI 驱动 Web 应用的门槛，同时保留了极高的灵活性和扩展性。
 
-随着 MCP 生态的发展，@agent-remote 也将逐步提供 MCP 兼容层，使浏览器工具能被更多 MCP 客户端发现和调用，融入更广阔的 AI 工具生态。
+随着 MCP 生态的发展，agent-remote 也将逐步提供 MCP 兼容层，使浏览器工具能被更多 MCP 客户端发现和调用，融入更广阔的 AI 工具生态。

@@ -1,21 +1,21 @@
-# @agent-remote/server-node
+# agent-remote-server-node
 
 语言：[English](README.md) | 简体中文
 
-`@agent-remote/server-node` 提供原生 Node.js HTTP router，不依赖 Express 或 Fastify 即可暴露 Agent Remote 的 SSE 和 HTTP POST 端点。
+`agent-remote-server-node` 提供原生 Node.js HTTP router，不依赖 Express 或 Fastify 即可暴露 Agent Remote 的 SSE 和 HTTP POST 端点。
 
 ## 安装
 
 ```bash
-npm install @agent-remote/server-node @agent-remote/server-core
+npm install agent-remote-server-node agent-remote-server-core
 ```
 
 ## 基础用法
 
 ```ts
 import http from "node:http";
-import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "@agent-remote/server-core";
-import { createNodeAgentRouter } from "@agent-remote/server-node";
+import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "agent-remote-server-core";
+import { createNodeAgentRouter } from "agent-remote-server-node";
 
 const sessionManager = new SessionManager(new InMemoryStore(), new LocalBroker());
 const engine = new AgentEngine({

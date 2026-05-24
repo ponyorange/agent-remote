@@ -5,14 +5,14 @@ import {
   createToolResultMessage,
   createUserMessage,
   type ProtocolMessage
-} from "@agent-remote/core";
+} from "agent-remote-core";
 import {
   createSseTransport,
   createSseTransportConfig,
   type SseEventSourceLike
 } from "../src/index";
 
-describe("@agent-remote/transport-sse", () => {
+describe("agent-remote-transport-sse", () => {
   it("creates an SSE transport config", () => {
     expect(
       createSseTransportConfig({

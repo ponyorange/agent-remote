@@ -3,7 +3,7 @@ import {
   createWebSocketTransportConfig,
   type WebSocketTransportDependencies,
   type WebSocketTransportOptions
-} from "@agent-remote/transport-ws";
+} from "agent-remote-transport-ws";
 import { BrowserAgentClient, type BrowserAgentClientOptions } from "./index";
 
 export { createWebSocketTransportConfig as createWSClientConfig };

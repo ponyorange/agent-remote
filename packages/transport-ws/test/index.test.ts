@@ -3,7 +3,7 @@ import {
   createAssistantMessage,
   createUserMessage,
   type ProtocolMessage
-} from "@agent-remote/core";
+} from "agent-remote-core";
 import {
   createWebSocketServerTransport,
   createWebSocketTransport,
@@ -11,7 +11,7 @@ import {
   type WebSocketLike
 } from "../src/index";
 
-describe("@agent-remote/transport-ws", () => {
+describe("agent-remote-transport-ws", () => {
   it("creates a websocket transport config with reconnect enabled by default", () => {
     expect(createWebSocketTransportConfig({ url: "ws://localhost:8080" })).toEqual({
       kind: "websocket",

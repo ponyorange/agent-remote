@@ -3,7 +3,7 @@ import {
   type ProtocolDropEvent,
   type ProtocolMessage,
   type TransportConnection
-} from "@agent-remote/core";
+} from "agent-remote-core";
 
 export interface WebSocketTransportConfig {
   kind: "websocket";

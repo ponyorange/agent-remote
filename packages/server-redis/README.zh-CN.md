@@ -1,13 +1,13 @@
-# @agent-remote/server-redis
+# agent-remote-server-redis
 
 语言：[English](README.md) | 简体中文
 
-`@agent-remote/server-redis` 提供 Redis 会话存储和消息 broker，用于 Agent Remote 多实例服务部署。
+`agent-remote-server-redis` 提供 Redis 会话存储和消息 broker，用于 Agent Remote 多实例服务部署。
 
 ## 安装
 
 ```bash
-npm install @agent-remote/server-redis @agent-remote/server-core redis
+npm install agent-remote-server-redis agent-remote-server-core redis
 ```
 
 `redis` 是 peer dependency，要求 `redis >=4.6.0`。
@@ -23,12 +23,12 @@ npm install @agent-remote/server-redis @agent-remote/server-core redis
 
 ```ts
 import { createClient } from "redis";
-import { SessionManager } from "@agent-remote/server-core";
+import { SessionManager } from "agent-remote-server-core";
 import {
   RedisMessageBroker,
   RedisSessionStore,
   createRedisAgentConfig
-} from "@agent-remote/server-redis";
+} from "agent-remote-server-redis";
 
 const config = createRedisAgentConfig(process.env.REDIS_URL!, "agent-remote");
 

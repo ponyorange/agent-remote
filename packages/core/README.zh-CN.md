@@ -1,13 +1,13 @@
-# @agent-remote/core
+# agent-remote-core
 
 语言：[English](README.md) | 简体中文
 
-`@agent-remote/core` 提供 Agent Remote 协议的共享类型、消息工厂、结构校验和传输层接口。所有浏览器端、服务端和传输层包都依赖它来保持同一套 `agent_remote:*` 协议。
+`agent-remote-core` 提供 Agent Remote 协议的共享类型、消息工厂、结构校验和传输层接口。所有浏览器端、服务端和传输层包都依赖它来保持同一套 `agent_remote:*` 协议。
 
 ## 安装
 
 ```bash
-npm install @agent-remote/core
+npm install agent-remote-core
 ```
 
 ## 适用场景
@@ -38,7 +38,7 @@ import {
   createToolResultMessage,
   validateProtocolMessage,
   type ToolDefinition
-} from "@agent-remote/core";
+} from "agent-remote-core";
 
 const tools: ToolDefinition[] = [
   {

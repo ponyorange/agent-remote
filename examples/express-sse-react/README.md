@@ -1,4 +1,4 @@
-# @agent-remote/example-express-sse-react
+# agent-remote-example-express-sse-react
 
 Language: English | [简体中文](README.zh-CN.md)
 
@@ -25,7 +25,7 @@ rush build
 Run the example test:
 
 ```bash
-rush test -t @agent-remote/example-express-sse-react
+rush test -t agent-remote-example-express-sse-react
 ```
 
 Start the development server from the example package directory:
@@ -79,7 +79,7 @@ PORT=4000 pnpm dev
 - Replace `DemoLLMClient` with a real LLM client, such as `OpenAILLMClient`.
 - Define real business tools and mark high-risk tools with `risk: "high"` or `level: "L3"`.
 - Add `sessionAuth` to prevent unauthorized session connections and tool calls.
-- For multi-instance deployments, replace `InMemoryStore` and `LocalBroker` with `@agent-remote/server-redis`.
+- For multi-instance deployments, replace `InMemoryStore` and `LocalBroker` with `agent-remote-server-redis`.
 
 ## Scripts
 

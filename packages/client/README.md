@@ -1,4 +1,4 @@
-# @agent-remote/client
+# agent-remote-client
 
 Language: English | [简体中文](README.zh-CN.md)
 
@@ -7,23 +7,23 @@ Framework-agnostic browser SDK for registering page tools, connecting to an Agen
 ## Installation
 
 ```bash
-npm install @agent-remote/client
+npm install agent-remote-client
 ```
 
-If you use React, install `@agent-remote/react` as well.
+If you use React, install `agent-remote-react` as well.
 
 ## Entry Points
 
-- `@agent-remote/client`: Exports `BrowserAgentClient`, `ToolRegistry`, and core client types.
-- `@agent-remote/client/sse`: Exports `createSSEClient` and `createSSEClientConfig`.
-- `@agent-remote/client/ws`: Exports `createWSClient` and `createWSClientConfig`.
+- `agent-remote-client`: Exports `BrowserAgentClient`, `ToolRegistry`, and core client types.
+- `agent-remote-client/sse`: Exports `createSSEClient` and `createSSEClientConfig`.
+- `agent-remote-client/ws`: Exports `createWSClient` and `createWSClientConfig`.
 
 ## SSE Usage
 
 The SSE client receives server messages through SSE and sends tool registrations, user messages, and tool results through HTTP POST.
 
 ```ts
-import { createSSEClient } from "@agent-remote/client/sse";
+import { createSSEClient } from "agent-remote-client/sse";
 
 const client = createSSEClient({
   kind: "sse",
@@ -83,7 +83,7 @@ await client.sendUserMessage("Change the background to blue");
 Use WebSocket when the browser and server can keep a bidirectional connection open.
 
 ```ts
-import { createWSClient } from "@agent-remote/client/ws";
+import { createWSClient } from "agent-remote-client/ws";
 
 const client = createWSClient({
   url: "ws://localhost:3000/agent",

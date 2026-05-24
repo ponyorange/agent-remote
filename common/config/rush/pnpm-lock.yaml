@@ -10,34 +10,34 @@ importers:
 
   ../../examples/express-sse-react:
     dependencies:
-      '@agent-remote/client':
+      'agent-remote-client':
         specifier: workspace:*
         version: link:../../packages/client
-      '@agent-remote/core':
+      'agent-remote-core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@agent-remote/react':
+      'agent-remote-react':
         specifier: workspace:*
         version: link:../../packages/react
-      '@agent-remote/server-core':
+      'agent-remote-server-core':
         specifier: workspace:*
         version: link:../../packages/server-core
-      '@agent-remote/server-express':
+      'agent-remote-server-express':
         specifier: workspace:*
         version: link:../../packages/server-express
-      '@agent-remote/server-fastify':
+      'agent-remote-server-fastify':
         specifier: workspace:*
         version: link:../../packages/server-fastify
-      '@agent-remote/server-node':
+      'agent-remote-server-node':
         specifier: workspace:*
         version: link:../../packages/server-node
-      '@agent-remote/server-redis':
+      'agent-remote-server-redis':
         specifier: workspace:*
         version: link:../../packages/server-redis
-      '@agent-remote/transport-sse':
+      'agent-remote-transport-sse':
         specifier: workspace:*
         version: link:../../packages/transport-sse
-      '@agent-remote/transport-ws':
+      'agent-remote-transport-ws':
         specifier: workspace:*
         version: link:../../packages/transport-ws
       express:
@@ -71,13 +71,13 @@ importers:
 
   ../../packages/client:
     dependencies:
-      '@agent-remote/core':
+      'agent-remote-core':
         specifier: workspace:*
         version: link:../core
-      '@agent-remote/transport-sse':
+      'agent-remote-transport-sse':
         specifier: workspace:*
         version: link:../transport-sse
-      '@agent-remote/transport-ws':
+      'agent-remote-transport-ws':
         specifier: workspace:*
         version: link:../transport-ws
     devDependencies:
@@ -111,10 +111,10 @@ importers:
 
   ../../packages/react:
     dependencies:
-      '@agent-remote/client':
+      'agent-remote-client':
         specifier: workspace:*
         version: link:../client
-      '@agent-remote/core':
+      'agent-remote-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -139,7 +139,7 @@ importers:
 
   ../../packages/server-core:
     dependencies:
-      '@agent-remote/core':
+      'agent-remote-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -158,13 +158,13 @@ importers:
 
   ../../packages/server-express:
     dependencies:
-      '@agent-remote/core':
+      'agent-remote-core':
         specifier: workspace:*
         version: link:../core
-      '@agent-remote/server-core':
+      'agent-remote-server-core':
         specifier: workspace:*
         version: link:../server-core
-      '@agent-remote/transport-sse':
+      'agent-remote-transport-sse':
         specifier: workspace:*
         version: link:../transport-sse
     devDependencies:
@@ -183,13 +183,13 @@ importers:
 
   ../../packages/server-fastify:
     dependencies:
-      '@agent-remote/core':
+      'agent-remote-core':
         specifier: workspace:*
         version: link:../core
-      '@agent-remote/server-core':
+      'agent-remote-server-core':
         specifier: workspace:*
         version: link:../server-core
-      '@agent-remote/transport-sse':
+      'agent-remote-transport-sse':
         specifier: workspace:*
         version: link:../transport-sse
     devDependencies:
@@ -208,13 +208,13 @@ importers:
 
   ../../packages/server-node:
     dependencies:
-      '@agent-remote/core':
+      'agent-remote-core':
         specifier: workspace:*
         version: link:../core
-      '@agent-remote/server-core':
+      'agent-remote-server-core':
         specifier: workspace:*
         version: link:../server-core
-      '@agent-remote/transport-sse':
+      'agent-remote-transport-sse':
         specifier: workspace:*
         version: link:../transport-sse
     devDependencies:
@@ -233,10 +233,10 @@ importers:
 
   ../../packages/server-redis:
     dependencies:
-      '@agent-remote/core':
+      'agent-remote-core':
         specifier: workspace:*
         version: link:../core
-      '@agent-remote/server-core':
+      'agent-remote-server-core':
         specifier: workspace:*
         version: link:../server-core
     devDependencies:
@@ -255,7 +255,7 @@ importers:
 
   ../../packages/transport-sse:
     dependencies:
-      '@agent-remote/core':
+      'agent-remote-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -274,7 +274,7 @@ importers:
 
   ../../packages/transport-ws:
     dependencies:
-      '@agent-remote/core':
+      'agent-remote-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:

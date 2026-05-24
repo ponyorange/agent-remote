@@ -7,7 +7,7 @@ import {
   type ToolResultMessage,
   type TransportConnection,
   type UserMessage
-} from "@agent-remote/core";
+} from "agent-remote-core";
 
 export interface SsePostUrls {
   registerTools: string;

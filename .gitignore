@@ -13,3 +13,6 @@ coverage/
 *.log
 .env
 .env.*
+
+.share/
+.pnpm-store/

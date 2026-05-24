@@ -1,13 +1,13 @@
-# @agent-remote/server-fastify
+# agent-remote-server-fastify
 
 语言：[English](README.md) | 简体中文
 
-`@agent-remote/server-fastify` 提供 Fastify plugin，用于注册 Agent Remote 的 SSE 和 HTTP POST 路由。
+`agent-remote-server-fastify` 提供 Fastify plugin，用于注册 Agent Remote 的 SSE 和 HTTP POST 路由。
 
 ## 安装
 
 ```bash
-npm install @agent-remote/server-fastify @agent-remote/server-core fastify
+npm install agent-remote-server-fastify agent-remote-server-core fastify
 ```
 
 `fastify` 是 peer dependency，要求 `fastify >=4.0.0`。
@@ -16,8 +16,8 @@ npm install @agent-remote/server-fastify @agent-remote/server-core fastify
 
 ```ts
 import Fastify from "fastify";
-import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "@agent-remote/server-core";
-import { createFastifyAgentPlugin } from "@agent-remote/server-fastify";
+import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "agent-remote-server-core";
+import { createFastifyAgentPlugin } from "agent-remote-server-fastify";
 
 const fastify = Fastify();
 const sessionManager = new SessionManager(new InMemoryStore(), new LocalBroker());

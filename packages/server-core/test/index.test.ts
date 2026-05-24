@@ -4,7 +4,7 @@ import {
   createToolCallMessage,
   type ToolCall,
   type TransportConnection
-} from "@agent-remote/core";
+} from "agent-remote-core";
 import {
   AgentEngine,
   InMemoryStore,
@@ -15,7 +15,7 @@ import {
   type MessageHandler
 } from "../src/index";
 
-describe("@agent-remote/server-core", () => {
+describe("agent-remote-server-core", () => {
   it("stores registered tools by session", async () => {
     const store = new InMemoryStore();
     const manager = new SessionManager(store);

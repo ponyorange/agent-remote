@@ -1,4 +1,4 @@
-# @agent-remote/server-fastify
+# agent-remote-server-fastify
 
 Language: English | [简体中文](README.zh-CN.md)
 
@@ -7,7 +7,7 @@ Fastify plugin that registers Agent Remote SSE and HTTP POST routes.
 ## Installation
 
 ```bash
-npm install @agent-remote/server-fastify @agent-remote/server-core fastify
+npm install agent-remote-server-fastify agent-remote-server-core fastify
 ```
 
 `fastify` is a peer dependency and must be `fastify >=4.0.0`.
@@ -16,8 +16,8 @@ npm install @agent-remote/server-fastify @agent-remote/server-core fastify
 
 ```ts
 import Fastify from "fastify";
-import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "@agent-remote/server-core";
-import { createFastifyAgentPlugin } from "@agent-remote/server-fastify";
+import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "agent-remote-server-core";
+import { createFastifyAgentPlugin } from "agent-remote-server-fastify";
 
 const fastify = Fastify();
 const sessionManager = new SessionManager(new InMemoryStore(), new LocalBroker());

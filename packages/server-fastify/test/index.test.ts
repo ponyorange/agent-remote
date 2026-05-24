@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
-import { createAssistantMessage } from "@agent-remote/core";
-import { SessionManager } from "@agent-remote/server-core";
+import { createAssistantMessage } from "agent-remote-core";
+import { SessionManager } from "agent-remote-server-core";
 import {
   createFastifyAgentPlugin,
   type FastifyAgentEngine,
@@ -10,7 +10,7 @@ import {
   type FastifyAgentRequest
 } from "../src/index";
 
-describe("@agent-remote/server-fastify", () => {
+describe("agent-remote-server-fastify", () => {
   it("registers Fastify routes", async () => {
     const fastify = createFastify();
     const plugin = createFastifyAgentPlugin(createEngine());

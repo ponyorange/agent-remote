@@ -1,4 +1,4 @@
-# @agent-remote/core
+# agent-remote-core
 
 Language: English | [简体中文](README.zh-CN.md)
 
@@ -7,7 +7,7 @@ Shared protocol types, message factories, structural validators, and transport c
 ## Installation
 
 ```bash
-npm install @agent-remote/core
+npm install agent-remote-core
 ```
 
 ## When To Use
@@ -38,7 +38,7 @@ import {
   createToolResultMessage,
   validateProtocolMessage,
   type ToolDefinition
-} from "@agent-remote/core";
+} from "agent-remote-core";
 
 const tools: ToolDefinition[] = [
   {

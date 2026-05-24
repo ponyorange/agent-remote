@@ -1,4 +1,4 @@
-# @agent-remote/react
+# agent-remote-react
 
 Language: English | [简体中文](README.zh-CN.md)
 
@@ -7,7 +7,7 @@ React hooks and state helpers for managing a `BrowserAgentClient` inside the Rea
 ## Installation
 
 ```bash
-npm install @agent-remote/react @agent-remote/client
+npm install agent-remote-react agent-remote-client
 ```
 
 `react` is a peer dependency and must be `react >=18.0.0`.
@@ -22,8 +22,8 @@ npm install @agent-remote/react @agent-remote/client
 
 ```tsx
 import { useCallback, useEffect } from "react";
-import { createSSEClient } from "@agent-remote/client/sse";
-import { useAgentClient } from "@agent-remote/react";
+import { createSSEClient } from "agent-remote-client/sse";
+import { useAgentClient } from "agent-remote-react";
 
 export function AgentWidget() {
   const createClient = useCallback(
@@ -104,7 +104,7 @@ Returned state:
 Use `createAgentClientState` directly if you need to test or reuse the state logic outside the React hook.
 
 ```ts
-import { createAgentClientState } from "@agent-remote/react";
+import { createAgentClientState } from "agent-remote-react";
 
 const state = createAgentClientState(client, { autoConnect: false });
 state?.registerTool(definition, handler);

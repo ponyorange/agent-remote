@@ -2,7 +2,7 @@
 
 语言：[English](README.md) | 简体中文
 
-`@agent-remote` 是一个 Rush 管理的 TypeScript monorepo，用于把浏览器应用中的安全工具暴露给 AI agent，并通过可替换的传输层连接浏览器端 SDK 与服务端 SDK。
+`agent-remote` 是一个 Rush 管理的 TypeScript monorepo，用于把浏览器应用中的安全工具暴露给 AI agent，并通过可替换的传输层连接浏览器端 SDK 与服务端 SDK。
 
 ## 适用场景
 
@@ -19,22 +19,22 @@
 npm install -g @microsoft/rush@5.120.0
 rush install
 rush build
-rush test -t @agent-remote/example-express-sse-react
+rush test -t agent-remote-example-express-sse-react
 ```
 
 可运行示例位于 `examples/express-sse-react`。它使用已发布包入口，打开 SSE 连接，在浏览器端注册一个低风险工具，并验证服务端可以发送 `agent_remote:tool_call`。
 
 ## 架构概览
 
-1. 浏览器应用通过 `@agent-remote/client` 或 `@agent-remote/react` 创建客户端。
+1. 浏览器应用通过 `agent-remote-client` 或 `agent-remote-react` 创建客户端。
 2. 客户端注册 `ToolDefinition`，并通过 SSE 或 WebSocket 与服务端建立连接。
 3. 服务端适配器接收工具注册、用户消息和工具结果。
-4. `@agent-remote/server-core` 管理会话、LLM 编排、工具策略、工具搜索和向浏览器发送工具调用。
+4. `agent-remote-server-core` 管理会话、LLM 编排、工具策略、工具搜索和向浏览器发送工具调用。
 5. 浏览器执行工具后返回 `ToolResult`，服务端继续把结果交给 LLM。
 
 ## 协议消息
 
-`@agent-remote/core` 定义协议版本 `AGENT_REMOTE_PROTOCOL_VERSION = "0.1.0"`，消息类型都使用 `agent_remote:` 前缀。
+`agent-remote-core` 定义协议版本 `AGENT_REMOTE_PROTOCOL_VERSION = "0.1.0"`，消息类型都使用 `agent_remote:` 前缀。
 
 - `agent_remote:hello`: WebSocket 握手消息。
 - `agent_remote:hello_ack`: WebSocket 握手确认。
@@ -49,44 +49,77 @@ rush test -t @agent-remote/example-express-sse-react
 
 核心协议与类型：
 
-- `@agent-remote/core`: 共享协议类型、消息工厂、结构校验和传输层接口。
+- `agent-remote-core`: 共享协议类型、消息工厂、结构校验和传输层接口。
 
 浏览器端：
 
-- `@agent-remote/client`: 框架无关的浏览器 SDK，用于注册工具、发送用户消息、执行服务端工具调用。
-- `@agent-remote/react`: React hook 和状态管理辅助工具，让 Agent Remote 客户端生命周期跟随组件。
+- `agent-remote-client`: 框架无关的浏览器 SDK，用于注册工具、发送用户消息、执行服务端工具调用。
+- `agent-remote-react`: React hook 和状态管理辅助工具，让 Agent Remote 客户端生命周期跟随组件。
 
 传输层：
 
-- `@agent-remote/transport-sse`: 浏览器通过 SSE 接收服务端消息，并通过 HTTP POST 发送客户端消息。
-- `@agent-remote/transport-ws`: WebSocket 传输层，支持双向消息、重连和服务端 socket 包装。
+- `agent-remote-transport-sse`: 浏览器通过 SSE 接收服务端消息，并通过 HTTP POST 发送客户端消息。
+- `agent-remote-transport-ws`: WebSocket 传输层，支持双向消息、重连和服务端 socket 包装。
 
 服务端：
 
-- `@agent-remote/server-core`: 框架无关服务端核心，包含 `AgentEngine`、`SessionManager`、内存存储、LLM 客户端接口和 OpenAI 兼容客户端。
-- `@agent-remote/server-express`: Express 路由适配器，提供 SSE 和 HTTP POST 端点。
-- `@agent-remote/server-fastify`: Fastify plugin，提供同样的 Agent Remote 端点。
-- `@agent-remote/server-node`: 原生 Node.js HTTP router，无需 Web 框架即可接入。
-- `@agent-remote/server-redis`: Redis 会话存储和消息 broker，用于多实例部署。
+- `agent-remote-server-core`: 框架无关服务端核心，包含 `AgentEngine`、`SessionManager`、内存存储、LLM 客户端接口和 OpenAI 兼容客户端。
+- `agent-remote-server-express`: Express 路由适配器，提供 SSE 和 HTTP POST 端点。
+- `agent-remote-server-fastify`: Fastify plugin，提供同样的 Agent Remote 端点。
+- `agent-remote-server-node`: 原生 Node.js HTTP router，无需 Web 框架即可接入。
+- `agent-remote-server-redis`: Redis 会话存储和消息 broker，用于多实例部署。
 
 示例：
 
-- `@agent-remote/example-express-sse-react`: 私有示例项目，演示 Express + SSE + React 的端到端链路。
+- `agent-remote-example-express-sse-react`: 私有示例项目，演示 Express + SSE + React 的端到端链路。
 
 ## 如何选择包
 
-- 非 React 浏览器应用：安装 `@agent-remote/client`，并选择 `@agent-remote/client/sse` 或 `@agent-remote/client/ws`。
-- React 应用：安装 `@agent-remote/react` 和 `@agent-remote/client`，用 `useAgentClient` 管理连接、状态和清理。
-- Express 服务：安装 `@agent-remote/server-core` 与 `@agent-remote/server-express`。
-- Fastify 服务：安装 `@agent-remote/server-core` 与 `@agent-remote/server-fastify`。
-- 原生 Node HTTP 服务：安装 `@agent-remote/server-core` 与 `@agent-remote/server-node`。
+- 非 React 浏览器应用：安装 `agent-remote-client`，并选择 `agent-remote-client/sse` 或 `agent-remote-client/ws`。
+- React 应用：安装 `agent-remote-react` 和 `agent-remote-client`，用 `useAgentClient` 管理连接、状态和清理。
+- Express 服务：安装 `agent-remote-server-core` 与 `agent-remote-server-express`。
+- Fastify 服务：安装 `agent-remote-server-core` 与 `agent-remote-server-fastify`。
+- 原生 Node HTTP 服务：安装 `agent-remote-server-core` 与 `agent-remote-server-node`。
 - 单实例服务：使用 `InMemoryStore` 和 `LocalBroker`。
-- 多实例服务：增加 `@agent-remote/server-redis`，用 Redis 同步会话和跨实例消息。
+- 多实例服务：增加 `agent-remote-server-redis`，用 Redis 同步会话和跨实例消息。
+
+## npm 包使用教程
+
+按运行环境只安装需要的包：
+
+```bash
+# 浏览器客户端，包含 SSE / WebSocket 辅助入口
+npm install agent-remote-client
+
+# React 集成
+npm install agent-remote-react agent-remote-client
+
+# Express 服务端适配器
+npm install agent-remote-server-core agent-remote-server-express express
+
+# Fastify 服务端适配器
+npm install agent-remote-server-core agent-remote-server-fastify fastify
+
+# 原生 Node HTTP 适配器
+npm install agent-remote-server-core agent-remote-server-node
+
+# Redis 多实例部署
+npm install agent-remote-server-redis redis
+```
+
+按应用层导入对应包：
+
+```ts
+import { createSSEClient } from "agent-remote-client/sse";
+import { useAgentClient } from "agent-remote-react";
+import { AgentEngine, SessionManager } from "agent-remote-server-core";
+import { createExpressAgentRouter } from "agent-remote-server-express";
+```
 
 ## 最小浏览器客户端
 
 ```ts
-import { createSSEClient } from "@agent-remote/client/sse";
+import { createSSEClient } from "agent-remote-client/sse";
 
 const client = createSSEClient({
   kind: "sse",
@@ -132,8 +165,8 @@ await client.sendUserMessage("Change the background to blue");
 
 ```ts
 import express from "express";
-import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "@agent-remote/server-core";
-import { createExpressAgentRouter } from "@agent-remote/server-express";
+import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "agent-remote-server-core";
+import { createExpressAgentRouter } from "agent-remote-server-express";
 
 const sessionManager = new SessionManager(new InMemoryStore(), new LocalBroker());
 const engine = new AgentEngine({
@@ -193,9 +226,9 @@ rush lint
 只运行某个包：
 
 ```bash
-rush build -t @agent-remote/client
-rush test -t @agent-remote/example-express-sse-react
-rush lint -t @agent-remote/server-core
+rush build -t agent-remote-client
+rush test -t agent-remote-example-express-sse-react
+rush lint -t agent-remote-server-core
 ```
 
 `rush lint` 当前运行每个包的 `tsc --noEmit` 脚本；默认检查链路不包含 ESLint。
@@ -210,7 +243,7 @@ rush version-packages
 rush publish-packages
 ```
 
-`packages/*` 中的公开包都包含 `publishConfig.access = "public"`。示例包 `@agent-remote/example-express-sse-react` 是私有包，不发布到 npm。
+`packages/*` 中的公开包都包含 `publishConfig.access = "public"`。示例包 `agent-remote-example-express-sse-react` 是私有包，不发布到 npm。
 
 ## 兼容性
 

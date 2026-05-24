@@ -8,57 +8,57 @@
   "ensureConsistentVersions": true,
   "projects": [
     {
-      "packageName": "@agent-remote/core",
+      "packageName": "agent-remote-core",
       "projectFolder": "packages/core",
       "reviewCategory": "core"
     },
     {
-      "packageName": "@agent-remote/transport-ws",
+      "packageName": "agent-remote-transport-ws",
       "projectFolder": "packages/transport-ws",
       "reviewCategory": "transport"
     },
     {
-      "packageName": "@agent-remote/transport-sse",
+      "packageName": "agent-remote-transport-sse",
       "projectFolder": "packages/transport-sse",
       "reviewCategory": "transport"
     },
     {
-      "packageName": "@agent-remote/client",
+      "packageName": "agent-remote-client",
       "projectFolder": "packages/client",
       "reviewCategory": "client"
     },
     {
-      "packageName": "@agent-remote/server-core",
+      "packageName": "agent-remote-server-core",
       "projectFolder": "packages/server-core",
       "reviewCategory": "server-core"
     },
     {
-      "packageName": "@agent-remote/server-express",
+      "packageName": "agent-remote-server-express",
       "projectFolder": "packages/server-express",
       "reviewCategory": "server-adapter"
     },
     {
-      "packageName": "@agent-remote/server-fastify",
+      "packageName": "agent-remote-server-fastify",
       "projectFolder": "packages/server-fastify",
       "reviewCategory": "server-adapter"
     },
     {
-      "packageName": "@agent-remote/server-node",
+      "packageName": "agent-remote-server-node",
       "projectFolder": "packages/server-node",
       "reviewCategory": "server-adapter"
     },
     {
-      "packageName": "@agent-remote/server-redis",
+      "packageName": "agent-remote-server-redis",
       "projectFolder": "packages/server-redis",
       "reviewCategory": "server-adapter"
     },
     {
-      "packageName": "@agent-remote/react",
+      "packageName": "agent-remote-react",
       "projectFolder": "packages/react",
       "reviewCategory": "client"
     },
     {
-      "packageName": "@agent-remote/example-express-sse-react",
+      "packageName": "agent-remote-example-express-sse-react",
       "projectFolder": "examples/express-sse-react",
       "reviewCategory": "examples"
     }

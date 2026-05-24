@@ -4,8 +4,8 @@ import {
   type ToolDefinition,
   type ToolResult,
   type TransportConnection
-} from "@agent-remote/core";
-import type { SessionAuth, SessionManager } from "@agent-remote/server-core";
+} from "agent-remote-core";
+import type { SessionAuth, SessionManager } from "agent-remote-server-core";
 
 export interface ExpressAgentEngine {
   readonly sessionManager?: SessionManager;

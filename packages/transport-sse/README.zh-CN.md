@@ -1,21 +1,21 @@
-# @agent-remote/transport-sse
+# agent-remote-transport-sse
 
 语言：[English](README.md) | 简体中文
 
-`@agent-remote/transport-sse` 提供浏览器端 SSE transport：服务端到客户端的消息通过 SSE 到达，客户端到服务端的消息通过 HTTP POST 发送。
+`agent-remote-transport-sse` 提供浏览器端 SSE transport：服务端到客户端的消息通过 SSE 到达，客户端到服务端的消息通过 HTTP POST 发送。
 
 ## 安装
 
 ```bash
-npm install @agent-remote/transport-sse @agent-remote/core
+npm install agent-remote-transport-sse agent-remote-core
 ```
 
-通常你会通过 `@agent-remote/client/sse` 使用它，而不是直接创建 transport。
+通常你会通过 `agent-remote-client/sse` 使用它，而不是直接创建 transport。
 
 ## 基础用法
 
 ```ts
-import { createSseTransport } from "@agent-remote/transport-sse";
+import { createSseTransport } from "agent-remote-transport-sse";
 
 const transport = createSseTransport({
   kind: "sse",

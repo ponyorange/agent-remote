@@ -1,4 +1,4 @@
-# @agent-remote/server-node
+# agent-remote-server-node
 
 Language: English | [简体中文](README.zh-CN.md)
 
@@ -7,15 +7,15 @@ Native Node.js HTTP router for exposing Agent Remote SSE and HTTP POST endpoints
 ## Installation
 
 ```bash
-npm install @agent-remote/server-node @agent-remote/server-core
+npm install agent-remote-server-node agent-remote-server-core
 ```
 
 ## Basic Usage
 
 ```ts
 import http from "node:http";
-import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "@agent-remote/server-core";
-import { createNodeAgentRouter } from "@agent-remote/server-node";
+import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "agent-remote-server-core";
+import { createNodeAgentRouter } from "agent-remote-server-node";
 
 const sessionManager = new SessionManager(new InMemoryStore(), new LocalBroker());
 const engine = new AgentEngine({

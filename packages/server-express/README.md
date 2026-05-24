@@ -1,4 +1,4 @@
-# @agent-remote/server-express
+# agent-remote-server-express
 
 Language: English | [简体中文](README.zh-CN.md)
 
@@ -7,7 +7,7 @@ Express-compatible router for Agent Remote's SSE downstream channel and HTTP POS
 ## Installation
 
 ```bash
-npm install @agent-remote/server-express @agent-remote/server-core express
+npm install agent-remote-server-express agent-remote-server-core express
 ```
 
 `express` is a peer dependency and must be `express >=4.18.0`.
@@ -16,8 +16,8 @@ npm install @agent-remote/server-express @agent-remote/server-core express
 
 ```ts
 import express from "express";
-import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "@agent-remote/server-core";
-import { createExpressAgentRouter } from "@agent-remote/server-express";
+import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "agent-remote-server-core";
+import { createExpressAgentRouter } from "agent-remote-server-express";
 
 const sessionManager = new SessionManager(new InMemoryStore(), new LocalBroker());
 const engine = new AgentEngine({

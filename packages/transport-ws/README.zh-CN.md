@@ -1,21 +1,21 @@
-# @agent-remote/transport-ws
+# agent-remote-transport-ws
 
 语言：[English](README.md) | 简体中文
 
-`@agent-remote/transport-ws` 提供 WebSocket transport，用于 Agent Remote 浏览器客户端和服务端 WebSocket 连接。
+`agent-remote-transport-ws` 提供 WebSocket transport，用于 Agent Remote 浏览器客户端和服务端 WebSocket 连接。
 
 ## 安装
 
 ```bash
-npm install @agent-remote/transport-ws @agent-remote/core
+npm install agent-remote-transport-ws agent-remote-core
 ```
 
-通常你会通过 `@agent-remote/client/ws` 使用浏览器端封装。
+通常你会通过 `agent-remote-client/ws` 使用浏览器端封装。
 
 ## 浏览器端用法
 
 ```ts
-import { createWebSocketTransport, createWebSocketTransportConfig } from "@agent-remote/transport-ws";
+import { createWebSocketTransport, createWebSocketTransportConfig } from "agent-remote-transport-ws";
 
 const transport = createWebSocketTransport(createWebSocketTransportConfig({
   url: "ws://localhost:3000/agent",
@@ -34,7 +34,7 @@ transport.onMessage((message) => {
 如果服务端框架已经提供 WebSocket-like socket，可以用 `createWebSocketServerTransport` 包装成统一的 `TransportConnection`。
 
 ```ts
-import { createWebSocketServerTransport } from "@agent-remote/transport-ws";
+import { createWebSocketServerTransport } from "agent-remote-transport-ws";
 
 const transport = createWebSocketServerTransport(socket);
 sessionManager.attachTransport("session-1", transport);

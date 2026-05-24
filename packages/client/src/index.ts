@@ -13,7 +13,7 @@ import {
   type ToolDefinition,
   type ToolResult,
   type TransportConnection
-} from "@agent-remote/core";
+} from "agent-remote-core";
 
 export type ToolHandler = (args: unknown) => unknown | Promise<unknown>;
 

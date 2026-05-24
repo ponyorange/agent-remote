@@ -1,8 +1,8 @@
-# @agent-remote 代码管理技术方案（Rush Monorepo）
+# agent-remote 代码管理技术方案（Rush Monorepo）
 
 ## 1. 概述
 
-本文档定义 `@agent-remote` 项目采用 **Rush** 作为 monorepo 管理工具的完整代码工程方案。涵盖仓库结构、Rush 配置、依赖管理、构建策略、版本发布流程及 CI/CD 集成，确保多包协同开发的高效性与一致性。
+本文档定义 `agent-remote` 项目采用 **Rush** 作为 monorepo 管理工具的完整代码工程方案。涵盖仓库结构、Rush 配置、依赖管理、构建策略、版本发布流程及 CI/CD 集成，确保多包协同开发的高效性与一致性。
 
 ## 2. 仓库结构
 
@@ -19,16 +19,16 @@ agent-remote/
 │   ├── scripts/               # 公共脚本
 │   └── git-hooks/             # Git 钩子
 ├── packages/
-│   ├── core/                  # @agent-remote/core
-│   ├── transport-ws/          # @agent-remote/transport-ws
-│   ├── transport-sse/         # @agent-remote/transport-sse
-│   ├── client/                # @agent-remote/client
-│   ├── server-core/           # @agent-remote/server-core
-│   ├── server-express/        # @agent-remote/server-express
-│   ├── server-fastify/        # @agent-remote/server-fastify
-│   ├── server-node/           # @agent-remote/server-node
-│   ├── server-redis/          # @agent-remote/server-redis
-│   └── react/                 # @agent-remote/react
+│   ├── core/                  # agent-remote-core
+│   ├── transport-ws/          # agent-remote-transport-ws
+│   ├── transport-sse/         # agent-remote-transport-sse
+│   ├── client/                # agent-remote-client
+│   ├── server-core/           # agent-remote-server-core
+│   ├── server-express/        # agent-remote-server-express
+│   ├── server-fastify/        # agent-remote-server-fastify
+│   ├── server-node/           # agent-remote-server-node
+│   ├── server-redis/          # agent-remote-server-redis
+│   └── react/                 # agent-remote-react
 ├── docs/                      # 文档站点源码（可选）
 ├── .github/
 │   └── workflows/             # CI 定义
@@ -48,52 +48,52 @@ agent-remote/
   "projectFolderMaxDepth": 2,
   "projects": [
     {
-      "packageName": "@agent-remote/core",
+      "packageName": "agent-remote-core",
       "projectFolder": "packages/core",
       "reviewCategory": "core"
     },
     {
-      "packageName": "@agent-remote/transport-ws",
+      "packageName": "agent-remote-transport-ws",
       "projectFolder": "packages/transport-ws",
       "reviewCategory": "transport"
     },
     {
-      "packageName": "@agent-remote/transport-sse",
+      "packageName": "agent-remote-transport-sse",
       "projectFolder": "packages/transport-sse",
       "reviewCategory": "transport"
     },
     {
-      "packageName": "@agent-remote/client",
+      "packageName": "agent-remote-client",
       "projectFolder": "packages/client",
       "reviewCategory": "client"
     },
     {
-      "packageName": "@agent-remote/server-core",
+      "packageName": "agent-remote-server-core",
       "projectFolder": "packages/server-core",
       "reviewCategory": "server-core"
     },
     {
-      "packageName": "@agent-remote/server-express",
+      "packageName": "agent-remote-server-express",
       "projectFolder": "packages/server-express",
       "reviewCategory": "server-adapter"
     },
     {
-      "packageName": "@agent-remote/server-fastify",
+      "packageName": "agent-remote-server-fastify",
       "projectFolder": "packages/server-fastify",
       "reviewCategory": "server-adapter"
     },
     {
-      "packageName": "@agent-remote/server-node",
+      "packageName": "agent-remote-server-node",
       "projectFolder": "packages/server-node",
       "reviewCategory": "server-adapter"
     },
     {
-      "packageName": "@agent-remote/server-redis",
+      "packageName": "agent-remote-server-redis",
       "projectFolder": "packages/server-redis",
       "reviewCategory": "server-adapter"
     },
     {
-      "packageName": "@agent-remote/react",
+      "packageName": "agent-remote-react",
       "projectFolder": "packages/react",
       "reviewCategory": "client"
     }
@@ -163,11 +163,11 @@ packages/<name>/
 └── README.md
 ```
 
-### 4.1 package.json 示例（@agent-remote/core）
+### 4.1 package.json 示例（agent-remote-core）
 
 ```json
 {
-  "name": "@agent-remote/core",
+  "name": "agent-remote-core",
   "version": "0.1.0",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -203,10 +203,10 @@ packages/<name>/
 
 使用 Rush 的 `strictPeerDependencies` 确保依赖正确性。各包的 `package.json` 中声明内部依赖：
 
-- `@agent-remote/transport-ws` -> `@agent-remote/core`
-- `@agent-remote/client` -> `@agent-remote/core` + 可选传输包
-- `@agent-remote/server-core` -> `@agent-remote/core`
-- `@agent-remote/server-express` -> `@agent-remote/server-core` + `@agent-remote/transport-sse`
+- `agent-remote-transport-ws` -> `agent-remote-core`
+- `agent-remote-client` -> `agent-remote-core` + 可选传输包
+- `agent-remote-server-core` -> `agent-remote-core`
+- `agent-remote-server-express` -> `agent-remote-server-core` + `agent-remote-transport-sse`
 - 其他类似。
 
 ### 4.3 循环依赖避免
@@ -228,7 +228,7 @@ rush install
 
 ```bash
 rush build          # 增量构建所有项目
-rush build -t @agent-remote/client   # 构建到指定包及其依赖
+rush build -t agent-remote-client   # 构建到指定包及其依赖
 ```
 
 Rush 根据依赖图自动确定构建顺序。
@@ -258,19 +258,20 @@ rush lint   # 运行每个包的 TypeScript no-emit 检查
    ```bash
    rush add -p @changesets/cli --dev --all
    ```
-2. 配置 `.changeset/config.json`，设置 `baseBranch: "main"`，`commit: false`。
+2. 配置 `.changeset/config.json`，设置 `baseBranch: "master"`，`commit: false`。
 3. Rush 可运行自定义命令 `changeset` 来添加变更记录。
-4. 发布时，使用 `changeset version` 生成版本号和 CHANGELOG，再使用 `rush publish` 发布。
+4. 发布时，使用 `rush version-packages` 生成版本号和 CHANGELOG，再使用 `rush publish-packages` 发布。
 
 ### 6.2 发布流程（基于 Changesets + Rush）
 
 1. 开发者执行 `rush changeset` 创建变更描述文件。
 2. CI 或维护者执行：
    ```bash
-   rush build          # 确保通过
+   rush build
    rush test
-   rush changeset:version   # 内部调用 changeset version，更新 package.json 和 CHANGELOG
-   rush publish -p --include-all   # 发布到 npm
+   rush lint
+   rush version-packages   # 内部调用 changeset version，更新 package.json 和 CHANGELOG
+   rush publish-packages   # 内部调用 changeset publish，发布到 npm
    ```
 3. 发布后提交版本标签。
 
@@ -280,6 +281,28 @@ rush lint   # 运行每个包的 TypeScript no-emit 检查
 - **次版本**（0.x.0）：新功能、非破坏性增强。
 - **补丁版本**（0.0.x）：BUG 修复。
 - 通过 Changesets 的语义化版本自动计算。
+
+### 6.4 npm 包使用教程
+
+公开包使用无 scope 的 `agent-remote-*` 命名。消费者按运行环境安装需要的包：
+
+```bash
+npm install agent-remote-client
+npm install agent-remote-react agent-remote-client
+npm install agent-remote-server-core agent-remote-server-express express
+npm install agent-remote-server-core agent-remote-server-fastify fastify
+npm install agent-remote-server-core agent-remote-server-node
+npm install agent-remote-server-redis redis
+```
+
+常用导入入口：
+
+```ts
+import { createSSEClient } from "agent-remote-client/sse";
+import { useAgentClient } from "agent-remote-react";
+import { AgentEngine, SessionManager } from "agent-remote-server-core";
+import { createExpressAgentRouter } from "agent-remote-server-express";
+```
 
 ## 7. CI/CD 集成
 
@@ -336,11 +359,11 @@ jobs:
 
 ## 10. 总结
 
-通过 Rush Monorepo，`@agent-remote` 项目能够实现：
+通过 Rush Monorepo，`agent-remote` 项目能够实现：
 
 - **统一依赖管理**，避免版本冲突，保证构建可重复。
 - **增量构建与缓存**，显著提升 CI 效率和本地开发体验。
 - **清晰的包边界与发布流程**，独立版本策略让各模块灵活演进。
 - **团队协作规范**，通过一致的工具链和配置降低新成员上手成本。
 
-该方案为 `@agent-remote` 的长期维护和生态建设奠定了坚实的工程基础。
+该方案为 `agent-remote` 的长期维护和生态建设奠定了坚实的工程基础。

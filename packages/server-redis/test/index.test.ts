@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAssistantMessage } from "@agent-remote/core";
+import { createAssistantMessage } from "agent-remote-core";
 import {
   RedisMessageBroker,
   RedisSessionStore,
@@ -8,7 +8,7 @@ import {
   type RedisSessionClient
 } from "../src/index";
 
-describe("@agent-remote/server-redis", () => {
+describe("agent-remote-server-redis", () => {
   it("creates a redis adapter config with a default key prefix", () => {
     expect(createRedisAgentConfig("redis://localhost:6379")).toEqual({
       url: "redis://localhost:6379",

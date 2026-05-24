@@ -1,8 +1,8 @@
 {
-  "name": "@agent-remote/example-express-sse-react",
+  "name": "agent-remote-example-express-sse-react",
   "version": "0.1.0",
   "private": true,
-  "description": "Runnable Express + SSE + React example for @agent-remote.",
+  "description": "Runnable Express + SSE + React example for agent-remote.",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -12,18 +12,18 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@agent-remote/client": "workspace:*",
-    "@agent-remote/core": "workspace:*",
-    "@agent-remote/react": "workspace:*",
-    "@agent-remote/server-core": "workspace:*",
-    "@agent-remote/server-express": "workspace:*",
+    "agent-remote-client": "workspace:*",
+    "agent-remote-core": "workspace:*",
+    "agent-remote-react": "workspace:*",
+    "agent-remote-server-core": "workspace:*",
+    "agent-remote-server-express": "workspace:*",
     "react": "^18.2.0",
     "express": "~5.2.1",
-    "@agent-remote/server-node": "workspace:*",
-    "@agent-remote/server-fastify": "workspace:*",
-    "@agent-remote/server-redis": "workspace:*",
-    "@agent-remote/transport-ws": "workspace:*",
-    "@agent-remote/transport-sse": "workspace:*"
+    "agent-remote-server-node": "workspace:*",
+    "agent-remote-server-fastify": "workspace:*",
+    "agent-remote-server-redis": "workspace:*",
+    "agent-remote-transport-ws": "workspace:*",
+    "agent-remote-transport-sse": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

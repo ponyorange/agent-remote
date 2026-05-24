@@ -7,7 +7,7 @@ import {
   type ToolDefinition,
   type ToolResult,
   type TransportConnection
-} from "@agent-remote/core";
+} from "agent-remote-core";
 
 export interface ChatMessage {
   role: "user" | "assistant" | "tool";

@@ -7,8 +7,8 @@ import {
   type LLMClient,
   type LLMRequest,
   type LLMResponse
-} from "@agent-remote/server-core";
-import { createExpressAgentRouter } from "@agent-remote/server-express";
+} from "agent-remote-server-core";
+import { createExpressAgentRouter } from "agent-remote-server-express";
 
 class DemoLLMClient implements LLMClient {
   async chat(params: LLMRequest): Promise<LLMResponse> {

@@ -5,7 +5,7 @@
       "name": "test",
       "commandKind": "bulk",
       "summary": "Run tests in all packages",
-      "description": "Run Vitest tests across all @agent-remote packages.",
+      "description": "Run Vitest tests across all agent-remote packages.",
       "enableParallelism": true,
       "ignoreMissingScript": false
     },
@@ -13,7 +13,7 @@
       "name": "lint",
       "commandKind": "bulk",
       "summary": "Typecheck all packages",
-      "description": "Run TypeScript no-emit checks across all @agent-remote packages.",
+      "description": "Run TypeScript no-emit checks across all agent-remote packages.",
       "enableParallelism": true,
       "ignoreMissingScript": false
     },

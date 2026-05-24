@@ -1,7 +1,7 @@
 {
-  "name": "@agent-remote/server-fastify",
+  "name": "agent-remote-server-fastify",
   "version": "0.1.0",
-  "description": "Fastify adapter for @agent-remote.",
+  "description": "Fastify adapter for agent-remote.",
   "license": "MIT",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -25,9 +25,9 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@agent-remote/core": "workspace:*",
-    "@agent-remote/server-core": "workspace:*",
-    "@agent-remote/transport-sse": "workspace:*"
+    "agent-remote-core": "workspace:*",
+    "agent-remote-server-core": "workspace:*",
+    "agent-remote-transport-sse": "workspace:*"
   },
   "peerDependencies": {
     "fastify": ">=4.0.0"

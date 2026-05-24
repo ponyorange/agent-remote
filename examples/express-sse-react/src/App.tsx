@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from "react";
-import { createSSEClient } from "@agent-remote/client/sse";
-import { useAgentClient } from "@agent-remote/react";
+import { createSSEClient } from "agent-remote-client/sse";
+import { useAgentClient } from "agent-remote-react";
 
 export function App() {
   const createClient = useCallback(

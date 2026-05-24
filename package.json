@@ -2,7 +2,7 @@
   "name": "agent-remote-monorepo",
   "version": "0.1.0",
   "private": true,
-  "description": "Rush monorepo for @agent-remote packages",
+  "description": "Rush monorepo for agent-remote packages",
   "license": "MIT",
   "packageManager": "pnpm@8.15.0",
   "scripts": {

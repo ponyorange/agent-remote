@@ -1,4 +1,4 @@
-# @agent-remote/example-express-sse-react
+# agent-remote-example-express-sse-react
 
 语言：[English](README.md) | 简体中文
 
@@ -25,7 +25,7 @@ rush build
 运行示例测试：
 
 ```bash
-rush test -t @agent-remote/example-express-sse-react
+rush test -t agent-remote-example-express-sse-react
 ```
 
 在示例包目录中启动开发服务：
@@ -79,7 +79,7 @@ PORT=4000 pnpm dev
 - 用真实 LLM client 替换 `DemoLLMClient`，例如 `OpenAILLMClient`。
 - 根据业务定义真实工具，并为高风险工具设置 `risk: "high"` 或 `level: "L3"`。
 - 增加 `sessionAuth`，避免未授权 session 连接和调用工具。
-- 多实例部署时，把 `InMemoryStore` 和 `LocalBroker` 替换为 `@agent-remote/server-redis`。
+- 多实例部署时，把 `InMemoryStore` 和 `LocalBroker` 替换为 `agent-remote-server-redis`。
 
 ## 脚本
 

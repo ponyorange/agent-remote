@@ -1,23 +1,23 @@
-# @agent-remote/server-core
+# agent-remote-server-core
 
 语言：[English](README.md) | 简体中文
 
-`@agent-remote/server-core` 提供框架无关的服务端核心能力：会话管理、消息分发、LLM 编排、工具策略、工具搜索和 OpenAI 兼容客户端。
+`agent-remote-server-core` 提供框架无关的服务端核心能力：会话管理、消息分发、LLM 编排、工具策略、工具搜索和 OpenAI 兼容客户端。
 
 ## 安装
 
 ```bash
-npm install @agent-remote/server-core
+npm install agent-remote-server-core
 ```
 
 服务端通常还需要一个 adapter：
 
 ```bash
-npm install @agent-remote/server-express
+npm install agent-remote-server-express
 # 或
-npm install @agent-remote/server-fastify
+npm install agent-remote-server-fastify
 # 或
-npm install @agent-remote/server-node
+npm install agent-remote-server-node
 ```
 
 ## 适用场景
@@ -48,7 +48,7 @@ import {
   LocalBroker,
   SessionManager,
   type LLMClient
-} from "@agent-remote/server-core";
+} from "agent-remote-server-core";
 
 const llmClient: LLMClient = {
   async chat(request) {
@@ -91,7 +91,7 @@ Adapter 会调用：
 ## OpenAI 兼容客户端
 
 ```ts
-import { OpenAILLMClient } from "@agent-remote/server-core";
+import { OpenAILLMClient } from "agent-remote-server-core";
 
 const llmClient = new OpenAILLMClient({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -108,7 +108,7 @@ const llmClient = new OpenAILLMClient({
 ## 会话与多实例
 
 - 单实例服务可以直接使用 `InMemoryStore` 和 `LocalBroker`。
-- 多实例服务应使用 `@agent-remote/server-redis` 提供的 `RedisSessionStore` 和 `RedisMessageBroker`。
+- 多实例服务应使用 `agent-remote-server-redis` 提供的 `RedisSessionStore` 和 `RedisMessageBroker`。
 - `SessionManager.attachTransport()` 用于把 SSE 或 WebSocket 连接绑定到会话。
 - `SessionManager.sendToSession()` 会向本实例连接发送消息，并通过 broker 发布给其他实例。
 

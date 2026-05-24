@@ -2,17 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   BrowserAgentClient,
   type ToolHandler
-} from "@agent-remote/client";
+} from "agent-remote-client";
 import {
   createAssistantMessage,
   createErrorMessage,
   type ProtocolMessage,
   type ToolDefinition,
   type TransportConnection
-} from "@agent-remote/core";
+} from "agent-remote-core";
 import { createAgentClientState } from "../src/index";
 
-describe("@agent-remote/react", () => {
+describe("agent-remote-react", () => {
   it("returns a client state when enabled", () => {
     const client = new BrowserAgentClient(new FakeTransport());
 

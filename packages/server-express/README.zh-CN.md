@@ -1,13 +1,13 @@
-# @agent-remote/server-express
+# agent-remote-server-express
 
 语言：[English](README.md) | 简体中文
 
-`@agent-remote/server-express` 提供 Express 兼容 router，用于暴露 Agent Remote 的 SSE 下行通道和 HTTP POST 上行端点。
+`agent-remote-server-express` 提供 Express 兼容 router，用于暴露 Agent Remote 的 SSE 下行通道和 HTTP POST 上行端点。
 
 ## 安装
 
 ```bash
-npm install @agent-remote/server-express @agent-remote/server-core express
+npm install agent-remote-server-express agent-remote-server-core express
 ```
 
 `express` 是 peer dependency，要求 `express >=4.18.0`。
@@ -16,8 +16,8 @@ npm install @agent-remote/server-express @agent-remote/server-core express
 
 ```ts
 import express from "express";
-import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "@agent-remote/server-core";
-import { createExpressAgentRouter } from "@agent-remote/server-express";
+import { AgentEngine, InMemoryStore, LocalBroker, SessionManager } from "agent-remote-server-core";
+import { createExpressAgentRouter } from "agent-remote-server-express";
 
 const sessionManager = new SessionManager(new InMemoryStore(), new LocalBroker());
 const engine = new AgentEngine({

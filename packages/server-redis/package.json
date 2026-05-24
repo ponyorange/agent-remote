@@ -1,7 +1,7 @@
 {
-  "name": "@agent-remote/server-redis",
+  "name": "agent-remote-server-redis",
   "version": "0.1.0",
-  "description": "Redis integration package for @agent-remote server deployments.",
+  "description": "Redis integration package for agent-remote server deployments.",
   "license": "MIT",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -25,8 +25,8 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@agent-remote/core": "workspace:*",
-    "@agent-remote/server-core": "workspace:*"
+    "agent-remote-core": "workspace:*",
+    "agent-remote-server-core": "workspace:*"
   },
   "peerDependencies": {
     "redis": ">=4.6.0"

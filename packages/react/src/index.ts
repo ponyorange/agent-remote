@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { BrowserAgentClient, ToolHandler } from "@agent-remote/client";
-import type { ErrorMessage, ToolDefinition } from "@agent-remote/core";
+import type { BrowserAgentClient, ToolHandler } from "agent-remote-client";
+import type { ErrorMessage, ToolDefinition } from "agent-remote-core";
 
 export interface UseAgentClientOptions {
   enabled?: boolean;

@@ -1,5 +1,5 @@
-import { validateProtocolMessage, type ProtocolMessage } from "@agent-remote/core";
-import type { MessageBroker, MessageHandler, SessionData, SessionStore } from "@agent-remote/server-core";
+import { validateProtocolMessage, type ProtocolMessage } from "agent-remote-core";
+import type { MessageBroker, MessageHandler, SessionData, SessionStore } from "agent-remote-server-core";
 
 export interface RedisAgentConfig {
   url: string;
