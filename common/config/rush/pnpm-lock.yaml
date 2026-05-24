@@ -53,6 +53,9 @@ importers:
       '@agent-remote/client':
         specifier: workspace:*
         version: link:../client
+      '@agent-remote/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@types/node':
         specifier: ^20.11.30

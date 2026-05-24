@@ -22,7 +22,8 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@agent-remote/client": "workspace:*"
+    "@agent-remote/client": "workspace:*",
+    "@agent-remote/core": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18.0.0"
