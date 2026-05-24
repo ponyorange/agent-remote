@@ -101,6 +101,58 @@ describe("@agent-remote/client", () => {
     }]);
   });
 
+  it("sends hello before registering tools when the transport supports handshake", async () => {
+    const transport = new FakeTransport();
+    transport.supportsHandshake = true;
+    const client = new BrowserAgentClient(transport);
+
+    await client.connect();
+
+    expect(transport.sent).toEqual([
+      {
+        type: "agent_remote:hello",
+        protocolVersion: "0.1.0",
+        capabilities: ["tools"]
+      },
+      {
+        type: "agent_remote:register_tools",
+        tools: []
+      }
+    ]);
+  });
+
+  it("re-registers tools after transport reconnects", async () => {
+    const transport = new FakeTransport();
+    const client = new BrowserAgentClient(transport);
+    client.registry.register(
+      {
+        name: "echo",
+        description: "Echo input",
+        parameters: { type: "object" }
+      },
+      (args) => args
+    );
+
+    await client.connect();
+    transport.sent.splice(0);
+    transport.emitReconnect();
+
+    await Promise.resolve();
+    expect(transport.sent).toEqual([
+      {
+        type: "agent_remote:register_tools",
+        tools: [
+          {
+            name: "echo",
+            description: "Echo input",
+            parameters: { type: "object" },
+            level: "L1"
+          }
+        ]
+      }
+    ]);
+  });
+
   it("sends user messages through the transport", async () => {
     const transport = new FakeTransport();
     const client = new BrowserAgentClient(transport);
@@ -110,7 +162,8 @@ describe("@agent-remote/client", () => {
     expect(transport.sent).toEqual([
       {
         type: "agent_remote:user_message",
-        text: "Create a chart"
+        text: "Create a chart",
+        messageId: expect.any(String)
       }
     ]);
   });
@@ -148,6 +201,79 @@ describe("@agent-remote/client", () => {
     ]);
   });
 
+  it("re-sends cached tool results for duplicate tool calls by callId", async () => {
+    const transport = new FakeTransport();
+    const client = new BrowserAgentClient(transport);
+    const handler = vi.fn(() => "ok");
+    client.registry.register(
+      {
+        name: "echo",
+        description: "Echo",
+        parameters: { type: "object" }
+      },
+      handler
+    );
+    const call = createToolCallMessage({
+      callId: "call-1",
+      name: "echo",
+      arguments: {}
+    });
+
+    await transport.emit(call);
+    await transport.emit(call);
+
+    expect(handler).toHaveBeenCalledOnce();
+    expect(transport.sent).toEqual([
+      {
+        type: "agent_remote:tool_result",
+        callId: "call-1",
+        ok: true,
+        result: "ok"
+      },
+      {
+        type: "agent_remote:tool_result",
+        callId: "call-1",
+        ok: true,
+        result: "ok"
+      }
+    ]);
+  });
+
+  it("asks for confirmation before executing high-risk tools", async () => {
+    const transport = new FakeTransport();
+    const handler = vi.fn();
+    const client = new BrowserAgentClient(transport, {
+      confirmToolCall: async () => false
+    });
+    client.registry.register(
+      {
+        name: "delete_record",
+        description: "Delete a record",
+        parameters: { type: "object" },
+        risk: "high"
+      },
+      handler
+    );
+
+    await transport.emit(
+      createToolCallMessage({
+        callId: "call-1",
+        name: "delete_record",
+        arguments: { id: "record-1" }
+      })
+    );
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(transport.sent).toEqual([
+      {
+        type: "agent_remote:tool_result",
+        callId: "call-1",
+        ok: false,
+        error: "Tool execution rejected by confirmation."
+      }
+    ]);
+  });
+
   it("emits assistant messages and protocol errors", async () => {
     const transport = new FakeTransport();
     const client = new BrowserAgentClient(transport);
@@ -161,6 +287,21 @@ describe("@agent-remote/client", () => {
 
     expect(messages).toEqual(["All set"]);
     expect(errors).toEqual(["Tool failed"]);
+  });
+
+  it("emits incompatible protocol errors for unsupported protocol versions", async () => {
+    const transport = new FakeTransport();
+    const client = new BrowserAgentClient(transport);
+    const errors: string[] = [];
+    client.on("error", (error) => errors.push(`${error.code}:${error.message}`));
+
+    await transport.emit({
+      type: "agent_remote:hello_ack",
+      protocolVersion: "9.9.9",
+      capabilities: []
+    });
+
+    expect(errors).toEqual(["incompatible_protocol:Incompatible Agent Remote protocol version."]);
   });
 
   it("unsubscribes client event handlers", async () => {
@@ -184,6 +325,25 @@ describe("@agent-remote/client", () => {
     await transport.emit({ type: "chat_message", text: "hello" });
 
     expect(messages).toEqual([]);
+  });
+
+  it("reports invalid protocol messages through the protocol drop hook", async () => {
+    const transport = new FakeTransport();
+    const drops: unknown[] = [];
+    new BrowserAgentClient(transport, {
+      onProtocolDrop(message) {
+        drops.push(message);
+      }
+    });
+
+    await transport.emit({ type: "chat_message", text: "hello" });
+
+    expect(drops).toEqual([
+      expect.objectContaining({
+        reason: "invalid_protocol_message",
+        message: { type: "chat_message", text: "hello" }
+      })
+    ]);
   });
 
   it("closes the transport when disconnecting", async () => {
@@ -248,6 +408,65 @@ describe("@agent-remote/client", () => {
     ]);
   });
 
+  it("passes browser client options through createSSEClient", async () => {
+    const source = new FakeEventSource();
+    const requests: Array<{ url: string; body: unknown }> = [];
+    const client = createSSEClient(
+      {
+        kind: "sse",
+        sseUrl: "/sse",
+        sessionId: "session-1",
+        postUrls: {
+          registerTools: "/api/register_tools",
+          sendMessage: "/api/chat",
+          toolResult: "/api/tool_result"
+        }
+      },
+      {
+        createEventSource: () => source,
+        fetch: async (url, init) => {
+          requests.push({
+            url,
+            body: JSON.parse(String(init?.body))
+          });
+          return new Response(null, { status: 204 });
+        }
+      },
+      {
+        confirmToolCall: async () => true
+      }
+    );
+    client.registry.register(
+      {
+        name: "dangerous",
+        description: "Dangerous action",
+        parameters: { type: "object" },
+        risk: "high"
+      },
+      () => "confirmed"
+    );
+
+    await source.emit(
+      createToolCallMessage({ callId: "call-1", name: "dangerous", arguments: {} })
+    );
+    await flushAsync();
+
+    expect(requests).toEqual([
+      {
+        url: "/api/tool_result",
+        body: {
+          sessionId: "session-1",
+          result: {
+            type: "agent_remote:tool_result",
+            callId: "call-1",
+            ok: true,
+            result: "confirmed"
+          }
+        }
+      }
+    ]);
+  });
+
   it("creates a WebSocket-backed browser client", async () => {
     const socket = new FakeWebSocket("ws://localhost:8080");
     const client = createWSClient(
@@ -257,11 +476,42 @@ describe("@agent-remote/client", () => {
 
     await client.sendUserMessage("Hello");
 
-    expect(socket.sent).toEqual([
-      JSON.stringify({
+    expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
+      {
         type: "agent_remote:user_message",
-        text: "Hello"
-      })
+        text: "Hello",
+        messageId: expect.any(String)
+      }
+    ]);
+  });
+
+  it("passes browser client options through createWSClient", async () => {
+    const socket = new FakeWebSocket("ws://localhost:8080");
+    const client = createWSClient(
+      { url: "ws://localhost:8080", reconnect: false },
+      { createWebSocket: () => socket },
+      { confirmToolCall: async () => true }
+    );
+    client.registry.register(
+      {
+        name: "dangerous",
+        description: "Dangerous action",
+        parameters: { type: "object" },
+        risk: "high"
+      },
+      () => "confirmed"
+    );
+
+    socket.emit(createToolCallMessage({ callId: "call-1", name: "dangerous", arguments: {} }));
+    await flushAsync();
+
+    expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
+      {
+        type: "agent_remote:tool_result",
+        callId: "call-1",
+        ok: true,
+        result: "confirmed"
+      }
     ]);
   });
 });
@@ -269,6 +519,8 @@ describe("@agent-remote/client", () => {
 class FakeTransport implements TransportConnection {
   readonly sent: ProtocolMessage[] = [];
   private readonly handlers: Array<(message: unknown) => void> = [];
+  private readonly reconnectHandlers: Array<() => void> = [];
+  supportsHandshake = false;
   closed = false;
 
   async send(message: ProtocolMessage): Promise<void> {
@@ -277,6 +529,10 @@ class FakeTransport implements TransportConnection {
 
   onMessage(handler: (message: unknown) => void): void {
     this.handlers.push(handler);
+  }
+
+  onReconnect(handler: () => void): void {
+    this.reconnectHandlers.push(handler);
   }
 
   async close(): Promise<void> {
@@ -291,16 +547,46 @@ class FakeTransport implements TransportConnection {
     await Promise.resolve();
     await Promise.resolve();
   }
+
+  emitReconnect(): void {
+    for (const handler of this.reconnectHandlers) {
+      handler();
+    }
+  }
+}
+
+async function flushAsync(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 class FakeEventSource {
-  addEventListener(): void {}
+  private readonly listeners = new Map<string, Array<(event: MessageEvent<string>) => void>>();
+
+  addEventListener(type: string, listener: (event: MessageEvent<string>) => void): void {
+    const listeners = this.listeners.get(type) ?? [];
+    listeners.push(listener);
+    this.listeners.set(type, listeners);
+  }
   close(): void {}
+
+  async emit(message: ProtocolMessage): Promise<void> {
+    const event = { data: JSON.stringify(message) } as MessageEvent<string>;
+    for (const listener of this.listeners.get(message.type) ?? []) {
+      listener(event);
+    }
+
+    await Promise.resolve();
+    await Promise.resolve();
+  }
 }
 
 class FakeWebSocket {
   readonly sent: string[] = [];
   readonly readyState = 1;
+  private readonly listeners = new Map<string, Array<(event: MessageEvent<string>) => void>>();
 
   constructor(readonly url: string) {}
 
@@ -308,6 +594,17 @@ class FakeWebSocket {
     this.sent.push(data);
   }
 
-  addEventListener(): void {}
+  addEventListener(type: string, listener: (event: MessageEvent<string>) => void): void {
+    const listeners = this.listeners.get(type) ?? [];
+    listeners.push(listener);
+    this.listeners.set(type, listeners);
+  }
   close(): void {}
+
+  emit(message: ProtocolMessage): void {
+    const event = { data: JSON.stringify(message) } as MessageEvent<string>;
+    for (const listener of this.listeners.get("message") ?? []) {
+      listener(event);
+    }
+  }
 }

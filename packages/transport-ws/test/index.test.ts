@@ -42,9 +42,12 @@ describe("@agent-remote/transport-ws", () => {
 
   it("queues messages until the WebSocket opens", async () => {
     const socket = new FakeWebSocket("ws://localhost:8080", 0);
-    const transport = createWebSocketTransport(createWebSocketTransportConfig({ url: socket.url }), {
+    const transport = createWebSocketTransport(
+      createWebSocketTransportConfig({ url: socket.url, reconnect: false }),
+      {
       createWebSocket: () => socket
-    });
+      }
+    );
     const sendPromise = transport.send(createUserMessage("Hello"));
 
     expect(socket.sent).toEqual([]);
@@ -76,6 +79,73 @@ describe("@agent-remote/transport-ws", () => {
     ]);
   });
 
+  it("reconnects after close and sends through the new WebSocket", async () => {
+    const sockets: FakeWebSocket[] = [];
+    const transport = createWebSocketTransport(
+      {
+        kind: "websocket",
+        url: "ws://localhost:8080",
+        reconnect: true,
+        reconnectDelayMs: 0,
+        maxReconnectAttempts: 1
+      },
+      {
+        createWebSocket(url) {
+          const socket = new FakeWebSocket(url, 0);
+          sockets.push(socket);
+          return socket;
+        },
+        scheduleReconnect(reconnect) {
+          reconnect();
+        }
+      }
+    );
+
+    sockets[0]?.close();
+    expect(sockets).toHaveLength(2);
+
+    const sendPromise = transport.send(createUserMessage("After reconnect"));
+    sockets[1]?.open();
+    await sendPromise;
+
+    expect(sockets[1]?.sent).toEqual([
+      JSON.stringify({
+        type: "agent_remote:user_message",
+        text: "After reconnect"
+      })
+    ]);
+  });
+
+  it("does not reconnect after the transport is closed", async () => {
+    const sockets: FakeWebSocket[] = [];
+    let reconnect: (() => void) | undefined;
+    const transport = createWebSocketTransport(
+      {
+        kind: "websocket",
+        url: "ws://localhost:8080",
+        reconnect: true,
+        reconnectDelayMs: 0,
+        maxReconnectAttempts: 1
+      },
+      {
+        createWebSocket(url) {
+          const socket = new FakeWebSocket(url, 1);
+          sockets.push(socket);
+          return socket;
+        },
+        scheduleReconnect(nextReconnect) {
+          reconnect = nextReconnect;
+        }
+      }
+    );
+
+    sockets[0]?.close();
+    await transport.close();
+    reconnect?.();
+
+    expect(sockets).toHaveLength(1);
+  });
+
   it("dispatches valid websocket messages to handlers", () => {
     const socket = new FakeWebSocket("ws://localhost:8080");
     const transport = createWebSocketTransport(createWebSocketTransportConfig({ url: socket.url }), {
@@ -92,8 +162,10 @@ describe("@agent-remote/transport-ws", () => {
 
   it("ignores messages that are not valid protocol messages", () => {
     const socket = new FakeWebSocket("ws://localhost:8080");
+    const drops: unknown[] = [];
     const transport = createWebSocketTransport(createWebSocketTransportConfig({ url: socket.url }), {
-      createWebSocket: () => socket
+      createWebSocket: () => socket,
+      onProtocolDrop: (event) => drops.push(event)
     });
     const received: unknown[] = [];
 
@@ -102,6 +174,10 @@ describe("@agent-remote/transport-ws", () => {
     socket.emitRawMessage("not-json");
 
     expect(received).toEqual([]);
+    expect(drops).toEqual([
+      expect.objectContaining({ reason: "invalid_protocol_message" }),
+      expect.objectContaining({ reason: "malformed_json" })
+    ]);
   });
 
   it("closes the WebSocket", async () => {

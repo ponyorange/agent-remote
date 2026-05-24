@@ -53,6 +53,34 @@ describe("@agent-remote/server-express", () => {
     expect(engine.handleUserMessage).toHaveBeenCalledWith("session-1", "Export this table");
   });
 
+  it("rejects requests when session auth fails", async () => {
+    const engine = createEngine();
+    const router = createExpressAgentRouter(engine, {
+      sessionAuth: {
+        async verifySession({ token }) {
+          return token === "valid-token";
+        }
+      }
+    });
+    const response = createResponse();
+
+    await router(
+      createRequest("POST", "/api/chat", {
+        headers: { authorization: "Bearer wrong-token" },
+        body: {
+          sessionId: "session-1",
+          text: "Export this table"
+        }
+      }),
+      response,
+      vi.fn()
+    );
+
+    expect(response.statusCode).toBe(401);
+    expect(response.jsonBody).toEqual({ error: "Unauthorized session" });
+    expect(engine.handleUserMessage).not.toHaveBeenCalled();
+  });
+
   it("routes tool results to the engine", async () => {
     const engine = createEngine();
     const router = createExpressAgentRouter(engine);
@@ -140,6 +168,7 @@ function createRequest(
   request.url = path;
   request.query = init.query;
   request.body = init.body;
+  request.headers = init.headers;
   return request;
 }
 

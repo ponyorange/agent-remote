@@ -19,6 +19,7 @@ export interface RedisPubSubClient {
 
 export interface RedisMessageBrokerOptions {
   instanceId?: string;
+  onProtocolDrop?: (reason: string, payload?: unknown) => void;
 }
 
 export function createRedisAgentConfig(url: string, keyPrefix = "agent-remote"): RedisAgentConfig {
@@ -64,6 +65,7 @@ export class RedisSessionStore implements SessionStore {
 export class RedisMessageBroker implements MessageBroker {
   private readonly handlers = new Set<MessageHandler>();
   private readonly instanceId: string;
+  private readonly onProtocolDrop?: (reason: string, payload?: unknown) => void;
   private subscribed = false;
 
   constructor(
@@ -73,13 +75,14 @@ export class RedisMessageBroker implements MessageBroker {
     options: RedisMessageBrokerOptions = {}
   ) {
     this.instanceId = options.instanceId ?? createInstanceId();
+    this.onProtocolDrop = options.onProtocolDrop;
   }
 
-  async publish(sessionId: string, message: ProtocolMessage): Promise<void> {
+  async publish(sessionId: string, message: ProtocolMessage, sourceId = this.instanceId): Promise<void> {
     await this.publisher.publish(
       this.channel,
       JSON.stringify({
-        sourceId: this.instanceId,
+        sourceId,
         sessionId,
         message
       })
@@ -98,6 +101,7 @@ export class RedisMessageBroker implements MessageBroker {
       const event = parseBrokerPayload(payload);
 
       if (!event) {
+        this.onProtocolDrop?.("malformed_payload", payload);
         return;
       }
 
@@ -105,7 +109,9 @@ export class RedisMessageBroker implements MessageBroker {
         return;
       }
 
-      await Promise.all([...this.handlers].map((listener) => listener(event.sessionId, event.message)));
+      await Promise.all(
+        [...this.handlers].map((listener) => listener(event.sessionId, event.message, event.sourceId))
+      );
     });
   }
 

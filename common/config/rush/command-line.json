@@ -16,6 +16,27 @@
       "description": "Run TypeScript no-emit checks across all @agent-remote packages.",
       "enableParallelism": true,
       "ignoreMissingScript": false
+    },
+    {
+      "name": "changeset",
+      "commandKind": "global",
+      "summary": "Create a changeset",
+      "description": "Run Changesets to record package changes.",
+      "shellCommand": "common/temp/pnpm-local/node_modules/.bin/pnpm dlx @changesets/cli changeset"
+    },
+    {
+      "name": "version-packages",
+      "commandKind": "global",
+      "summary": "Version packages from changesets",
+      "description": "Apply pending Changesets version bumps and changelog updates.",
+      "shellCommand": "common/temp/pnpm-local/node_modules/.bin/pnpm dlx @changesets/cli version"
+    },
+    {
+      "name": "publish-packages",
+      "commandKind": "global",
+      "summary": "Publish changed packages",
+      "description": "Publish public packages to npm using Changesets.",
+      "shellCommand": "common/temp/pnpm-local/node_modules/.bin/pnpm dlx @changesets/cli publish"
     }
   ],
   "parameters": []

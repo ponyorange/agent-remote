@@ -56,6 +56,11 @@
       "packageName": "@agent-remote/react",
       "projectFolder": "packages/react",
       "reviewCategory": "client"
+    },
+    {
+      "packageName": "@agent-remote/example-express-sse-react",
+      "projectFolder": "examples/express-sse-react",
+      "reviewCategory": "examples"
     }
   ]
 }

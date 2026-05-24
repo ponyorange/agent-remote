@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   AGENT_REMOTE_PROTOCOL_PREFIX,
+  AGENT_REMOTE_PROTOCOL_VERSION,
+  PROTOCOL_ERROR_CODES,
   createAssistantMessage,
   createErrorMessage,
+  createHelloAckMessage,
+  createHelloMessage,
   createRegisterToolsMessage,
   createToolCallMessage,
   createToolResultMessage,
@@ -92,6 +96,8 @@ describe("@agent-remote/core", () => {
 
   it("creates typed protocol messages with the agent_remote namespace", () => {
     const messages: ProtocolMessage[] = [
+      createHelloMessage(["sse", "tools"]),
+      createHelloAckMessage(["sse"]),
       createRegisterToolsMessage([]),
       createToolCallMessage({ callId: "call-1", name: "export_csv", arguments: { format: "csv" } }),
       createToolResultMessage({ callId: "call-1", ok: true, result: { url: "/download.csv" } }),
@@ -101,6 +107,8 @@ describe("@agent-remote/core", () => {
     ];
 
     expect(messages.map((message) => message.type)).toEqual([
+      "agent_remote:hello",
+      "agent_remote:hello_ack",
       "agent_remote:register_tools",
       "agent_remote:tool_call",
       "agent_remote:tool_result",
@@ -108,6 +116,38 @@ describe("@agent-remote/core", () => {
       "agent_remote:assistant_message",
       "agent_remote:error"
     ]);
+  });
+
+  it("creates protocol handshake messages with version and capabilities", () => {
+    expect(createHelloMessage(["sse", "tools"])).toEqual({
+      type: "agent_remote:hello",
+      protocolVersion: AGENT_REMOTE_PROTOCOL_VERSION,
+      capabilities: ["sse", "tools"]
+    });
+    expect(createHelloAckMessage(["sse"])).toEqual({
+      type: "agent_remote:hello_ack",
+      protocolVersion: AGENT_REMOTE_PROTOCOL_VERSION,
+      capabilities: ["sse"]
+    });
+    expect(PROTOCOL_ERROR_CODES.incompatibleProtocol).toBe("incompatible_protocol");
+  });
+
+  it("rejects protocol messages with incompatible protocol versions", () => {
+    const result = validateProtocolMessage({
+      type: "agent_remote:hello",
+      protocolVersion: "9.9.9",
+      capabilities: []
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          path: "/protocolVersion",
+          message: "protocolVersion is not supported"
+        })
+      ]);
+    }
   });
 
   it("normalizes tools when creating register_tools protocol messages", () => {

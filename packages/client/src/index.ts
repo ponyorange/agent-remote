@@ -1,11 +1,14 @@
 import {
   PROTOCOL_MESSAGE_TYPES,
+  PROTOCOL_ERROR_CODES,
+  createHelloMessage,
   createRegisterToolsMessage,
   createToolResultMessage,
   createUserMessage,
   normalizeToolDefinition,
   validateProtocolMessage,
   type ErrorMessage,
+  type ProtocolDropEvent,
   type ToolCall,
   type ToolDefinition,
   type ToolResult,
@@ -13,6 +16,11 @@ import {
 } from "@agent-remote/core";
 
 export type ToolHandler = (args: unknown) => unknown | Promise<unknown>;
+
+export interface BrowserAgentClientOptions {
+  confirmToolCall?: (tool: ToolDefinition, call: ToolCall) => boolean | Promise<boolean>;
+  onProtocolDrop?: (event: ProtocolDropEvent) => void;
+}
 
 export interface BrowserAgentClientEvents {
   message: string;
@@ -41,6 +49,10 @@ export class ToolRegistry {
 
   getDefinitions(): ToolDefinition[] {
     return [...this.tools.values()].map((tool) => tool.definition);
+  }
+
+  getDefinition(name: string): ToolDefinition | null {
+    return this.tools.get(name)?.definition ?? null;
   }
 
   async execute(call: ToolCall): Promise<ToolResult> {
@@ -76,19 +88,33 @@ export class BrowserAgentClient {
     BrowserAgentClientEvent,
     Set<(data: BrowserAgentClientEvents[BrowserAgentClientEvent]) => void>
   >();
+  private readonly toolCallResults = new Map<string, Promise<ToolResult>>();
+  private connectedOnce = false;
 
-  constructor(readonly transport: TransportConnection) {
+  constructor(
+    readonly transport: TransportConnection,
+    private readonly options: BrowserAgentClientOptions = {}
+  ) {
     this.transport.onMessage((message) => {
       void this.handleTransportMessage(message);
+    });
+    this.transport.onReconnect?.(() => {
+      if (this.connectedOnce) {
+        void this.connect();
+      }
     });
   }
 
   async connect(): Promise<void> {
+    this.connectedOnce = true;
+    if (this.transport.supportsHandshake) {
+      await this.transport.send(createHelloMessage(["tools"]));
+    }
     await this.transport.send(createRegisterToolsMessage(this.registry.getDefinitions()));
   }
 
   async sendUserMessage(text: string): Promise<void> {
-    await this.transport.send(createUserMessage(text));
+    await this.transport.send(createUserMessage(text, createClientMessageId()));
   }
 
   on<TEvent extends BrowserAgentClientEvent>(
@@ -106,6 +132,7 @@ export class BrowserAgentClient {
   }
 
   async disconnect(): Promise<void> {
+    this.connectedOnce = false;
     await this.transport.close();
     this.eventHandlers.clear();
   }
@@ -114,6 +141,18 @@ export class BrowserAgentClient {
     const result = validateProtocolMessage(message);
 
     if (!result.ok) {
+      if (result.errors.some((error) => error.path === "/protocolVersion")) {
+        this.emit("error", {
+          type: PROTOCOL_MESSAGE_TYPES.error,
+          message: "Incompatible Agent Remote protocol version.",
+          code: PROTOCOL_ERROR_CODES.incompatibleProtocol
+        });
+      }
+      this.options.onProtocolDrop?.({
+        reason: "invalid_protocol_message",
+        message,
+        errors: result.errors
+      });
       return;
     }
 
@@ -133,8 +172,40 @@ export class BrowserAgentClient {
   }
 
   private async handleToolCall(message: ToolCall): Promise<void> {
-    const result = await this.registry.execute(message);
-    await this.transport.send(createToolResultMessage(result));
+    const existingResult = this.toolCallResults.get(message.callId);
+
+    if (existingResult) {
+      await this.transport.send(createToolResultMessage(await existingResult));
+      return;
+    }
+
+    const resultPromise = this.executeToolCall(message);
+    this.toolCallResults.set(message.callId, resultPromise);
+    await this.transport.send(createToolResultMessage(await resultPromise));
+  }
+
+  private async executeToolCall(message: ToolCall): Promise<ToolResult> {
+    const definition = this.registry.getDefinition(message.name);
+
+    if (definition && shouldConfirmTool(definition)) {
+      const accepted = await this.options.confirmToolCall?.(definition, message);
+
+      if (!accepted) {
+        const rejectedResult: ToolResult = {
+          callId: message.callId,
+          ok: false,
+          error: "Tool execution rejected by confirmation."
+        };
+        this.emit("error", {
+          type: PROTOCOL_MESSAGE_TYPES.error,
+          message: "Tool execution rejected by confirmation.",
+          code: PROTOCOL_ERROR_CODES.toolExecutionRejected
+        });
+        return rejectedResult;
+      }
+    }
+
+    return this.registry.execute(message);
   }
 
   private emit<TEvent extends BrowserAgentClientEvent>(
@@ -145,4 +216,16 @@ export class BrowserAgentClient {
       handler(data);
     }
   }
+}
+
+function shouldConfirmTool(definition: ToolDefinition): boolean {
+  return definition.risk === "high" || definition.level === "L3";
+}
+
+function createClientMessageId(): string {
+  const random =
+    typeof globalThis.crypto?.randomUUID === "function"
+      ? globalThis.crypto.randomUUID()
+      : Math.random().toString(36).slice(2);
+  return `msg-${random}`;
 }

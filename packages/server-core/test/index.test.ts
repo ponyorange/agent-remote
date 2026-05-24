@@ -78,7 +78,7 @@ describe("@agent-remote/server-core", () => {
     });
   });
 
-  it("sends messages to a locally attached transport before using the broker", async () => {
+  it("sends messages to local transports and still publishes for remote fanout", async () => {
     const broker = new LocalBroker();
     const publish = vi.spyOn(broker, "publish");
     const send = vi.fn();
@@ -98,7 +98,7 @@ describe("@agent-remote/server-core", () => {
     await manager.sendToSession("session-1", message);
 
     expect(send).toHaveBeenCalledWith(message);
-    expect(publish).not.toHaveBeenCalled();
+    expect(publish).toHaveBeenCalledWith("session-1", message, expect.any(String));
   });
 
   it("publishes messages through the broker when no local transport is attached", async () => {
@@ -109,7 +109,7 @@ describe("@agent-remote/server-core", () => {
 
     await manager.sendToSession("session-1", message);
 
-    expect(publish).toHaveBeenCalledWith("session-1", message);
+    expect(publish).toHaveBeenCalledWith("session-1", message, expect.any(String));
   });
 
   it("routes broker messages to the manager that owns the local transport", async () => {
@@ -127,6 +127,24 @@ describe("@agent-remote/server-core", () => {
     await remoteManager.sendToSession("session-1", message);
 
     expect(send).toHaveBeenCalledWith(message);
+  });
+
+  it("fans out messages to remote managers even when the sender has local transports", async () => {
+    const broker = new LocalBroker();
+    const sender = new SessionManager(new InMemoryStore(), broker);
+    const receiver = new SessionManager(new InMemoryStore(), broker);
+    const senderSend = vi.fn();
+    const receiverSend = vi.fn();
+    const message = createAssistantMessage("Done");
+
+    sender.attachTransport("session-1", transportWithSend(senderSend));
+    receiver.attachTransport("session-1", transportWithSend(receiverSend));
+    await sender.sendToSession("session-1", message);
+
+    expect(senderSend).toHaveBeenCalledTimes(1);
+    expect(receiverSend).toHaveBeenCalledTimes(1);
+    expect(senderSend).toHaveBeenCalledWith(message);
+    expect(receiverSend).toHaveBeenCalledWith(message);
   });
 
   it("broadcasts local session messages to all attached transports", async () => {
@@ -188,6 +206,38 @@ describe("@agent-remote/server-core", () => {
     });
   });
 
+  it("applies a tool policy before registering tools", async () => {
+    const manager = new SessionManager();
+    const engine = new AgentEngine({
+      llmClient: new FakeLLMClient(),
+      sessionManager: manager,
+      toolPolicy: {
+        async filterTools(_sessionId, tools) {
+          return tools.filter((tool) => tool.risk !== "high");
+        }
+      }
+    });
+
+    await engine.handleRegisterTools("session-1", [
+      {
+        name: "safe_export",
+        description: "Export safely",
+        parameters: { type: "object" },
+        risk: "low"
+      },
+      {
+        name: "delete_all",
+        description: "Delete all data",
+        parameters: { type: "object" },
+        risk: "high"
+      }
+    ]);
+
+    await expect(manager.getData("session-1")).resolves.toMatchObject({
+      tools: [{ name: "safe_export" }]
+    });
+  });
+
   it("sends assistant responses after user messages", async () => {
     const send = vi.fn();
     const manager = new SessionManager();
@@ -209,6 +259,17 @@ describe("@agent-remote/server-core", () => {
     });
   });
 
+  it("ignores duplicate user messages by messageId", async () => {
+    const manager = new SessionManager();
+    const llmClient = new FakeLLMClient({ text: "Done" });
+    const engine = new AgentEngine({ llmClient, sessionManager: manager });
+
+    await engine.handleUserMessage("session-1", "Export this table", "message-1");
+    await engine.handleUserMessage("session-1", "Export this table", "message-1");
+
+    expect(llmClient.requests).toHaveLength(1);
+  });
+
   it("sends tool calls returned by the LLM", async () => {
     const send = vi.fn();
     const manager = new SessionManager();
@@ -228,6 +289,33 @@ describe("@agent-remote/server-core", () => {
         { role: "assistant", toolCalls: [toolCall] }
       ]
     });
+  });
+
+  it("emits observer hooks around LLM requests and tool calls", async () => {
+    const manager = new SessionManager();
+    const events: string[] = [];
+    manager.attachTransport("session-1", transportWithSend(vi.fn()));
+    const engine = new AgentEngine({
+      llmClient: new FakeLLMClient({
+        toolCalls: [{ callId: "call-1", name: "export_csv", arguments: {} }]
+      }),
+      sessionManager: manager,
+      observer: {
+        onLLMRequest() {
+          events.push("llm-request");
+        },
+        onLLMResponse() {
+          events.push("llm-response");
+        },
+        onToolCall() {
+          events.push("tool-call");
+        }
+      }
+    });
+
+    await engine.handleUserMessage("session-1", "Export this table");
+
+    expect(events).toEqual(["llm-request", "llm-response", "tool-call"]);
   });
 
   it("continues the LLM flow after tool results", async () => {
@@ -252,6 +340,19 @@ describe("@agent-remote/server-core", () => {
         { role: "assistant", content: "Tool result processed" }
       ]
     });
+  });
+
+  it("ignores duplicate tool results by callId", async () => {
+    const manager = new SessionManager();
+    await manager.saveData("session-1", { tools: [], messages: [] });
+    const llmClient = new FakeLLMClient({ text: "Done" });
+    const engine = new AgentEngine({ llmClient, sessionManager: manager });
+    const result = { callId: "call-1", ok: true, result: "ok" };
+
+    await engine.handleToolResult("session-1", result);
+    await engine.handleToolResult("session-1", result);
+
+    expect(llmClient.requests).toHaveLength(1);
   });
 
   it("handles search_tools calls before continuing LLM flow", async () => {

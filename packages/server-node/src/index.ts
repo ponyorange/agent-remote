@@ -6,12 +6,12 @@ import {
   type ToolResult,
   type TransportConnection
 } from "@agent-remote/core";
-import type { SessionManager } from "@agent-remote/server-core";
+import type { SessionAuth, SessionManager } from "@agent-remote/server-core";
 
 export interface NodeAgentEngine {
   readonly sessionManager?: SessionManager;
   handleRegisterTools(sessionId: string, tools: ToolDefinition[]): void | Promise<void>;
-  handleUserMessage(sessionId: string, text: string): void | Promise<void>;
+  handleUserMessage(sessionId: string, text: string, messageId?: string): void | Promise<void>;
   handleToolResult(sessionId: string, result: ToolResult): void | Promise<void>;
 }
 
@@ -25,6 +25,8 @@ export interface NodeAgentRouterRoutes {
 export interface NodeAgentRouterOptions {
   readonly routes?: Partial<NodeAgentRouterRoutes>;
   readonly maxBodyBytes?: number;
+  readonly sessionAuth?: SessionAuth;
+  readonly heartbeatIntervalMs?: number;
 }
 
 export type NodeAgentRouter = RequestListener;
@@ -51,13 +53,16 @@ export function createNodeAgentRouter(
       const url = new URL(request.url ?? "/", "http://agent-remote.local");
 
       if (request.method === "GET" && url.pathname === routes.sse) {
-        handleSse(request, response, engine, getSessionIdFromUrl(url));
+        const sessionId = getSessionIdFromUrl(url);
+        await verifySession(options.sessionAuth, sessionId, readRequestToken(request, url), request);
+        handleSse(request, response, engine, sessionId, options.heartbeatIntervalMs ?? 30_000);
         return;
       }
 
       if (request.method === "POST" && url.pathname === routes.registerTools) {
         const body = await readJsonBody(request, maxBodyBytes);
         const sessionId = readSessionId(body);
+        await verifySession(options.sessionAuth, sessionId, readRequestToken(request, url, body), request);
         const tools = readTools(body);
         await engine.handleRegisterTools(sessionId, tools);
         sendNoContent(response);
@@ -67,8 +72,14 @@ export function createNodeAgentRouter(
       if (request.method === "POST" && url.pathname === routes.chat) {
         const body = await readJsonBody(request, maxBodyBytes);
         const sessionId = readSessionId(body);
+        await verifySession(options.sessionAuth, sessionId, readRequestToken(request, url, body), request);
         const text = readString(body, "text");
-        await engine.handleUserMessage(sessionId, text);
+        const messageId = readOptionalString(body, "messageId");
+        if (messageId) {
+          await engine.handleUserMessage(sessionId, text, messageId);
+        } else {
+          await engine.handleUserMessage(sessionId, text);
+        }
         sendNoContent(response);
         return;
       }
@@ -76,6 +87,7 @@ export function createNodeAgentRouter(
       if (request.method === "POST" && url.pathname === routes.toolResult) {
         const body = await readJsonBody(request, maxBodyBytes);
         const sessionId = readSessionId(body);
+        await verifySession(options.sessionAuth, sessionId, readRequestToken(request, url, body), request);
         const result = readToolResult(body);
         await engine.handleToolResult(sessionId, result);
         sendNoContent(response);
@@ -94,11 +106,27 @@ export function createNodeAgentRouter(
   };
 }
 
+async function verifySession(
+  sessionAuth: SessionAuth | undefined,
+  sessionId: string,
+  token: string | undefined,
+  request: IncomingMessage
+): Promise<void> {
+  if (!sessionAuth) {
+    return;
+  }
+
+  if (!(await sessionAuth.verifySession({ sessionId, token, request }))) {
+    throw new HttpError(401, "Unauthorized session");
+  }
+}
+
 function handleSse(
   request: IncomingMessage,
   response: ServerResponse,
   engine: NodeAgentEngine,
-  sessionId: string
+  sessionId: string,
+  heartbeatIntervalMs: number
 ): void {
   if (!engine.sessionManager) {
     throw new HttpError(501, "SSE requires an engine sessionManager");
@@ -111,6 +139,9 @@ function handleSse(
     "x-accel-buffering": "no"
   });
   response.write(": connected\n\n");
+  const heartbeat = setInterval(() => {
+    response.write(": heartbeat\n\n");
+  }, heartbeatIntervalMs);
 
   const transport: TransportConnection = {
     send(message) {
@@ -126,6 +157,7 @@ function handleSse(
 
   const handle = engine.sessionManager.attachTransport(sessionId, transport);
   request.on("close", () => {
+    clearInterval(heartbeat);
     engine.sessionManager?.detachTransport(sessionId, handle);
   });
 }
@@ -191,6 +223,27 @@ function getSessionIdFromUrl(url: URL): string {
   return sessionId;
 }
 
+function readRequestToken(
+  request: IncomingMessage,
+  url?: URL,
+  body?: Record<string, unknown>
+): string | undefined {
+  const authorization = request.headers.authorization;
+
+  if (authorization?.startsWith("Bearer ")) {
+    return authorization.slice("Bearer ".length);
+  }
+
+  const queryToken = url?.searchParams.get("session_token") ?? url?.searchParams.get("token");
+
+  if (queryToken) {
+    return queryToken;
+  }
+
+  const bodyToken = body?.sessionToken ?? body?.session_token;
+  return typeof bodyToken === "string" ? bodyToken : undefined;
+}
+
 function readTools(body: Record<string, unknown>): ToolDefinition[] {
   if (!Array.isArray(body.tools)) {
     throw new HttpError(400, "tools must be an array");
@@ -236,6 +289,11 @@ function readString(body: Record<string, unknown>, key: string): string {
   }
 
   return value;
+}
+
+function readOptionalString(body: Record<string, unknown>, key: string): string | undefined {
+  const value = body[key];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function sendNoContent(response: ServerResponse): void {

@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  version:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - name: Install Rush
+        run: npm install -g @microsoft/rush@5.120.0
+      - name: Install dependencies
+        run: rush install
+      - name: Version packages
+        run: rush version-packages
+      - name: Create version PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: changeset-version
+          title: Version packages
+          commit-message: Version packages
+          body: Apply pending Changesets version bumps and changelog updates.
+
+  publish:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          registry-url: https://registry.npmjs.org
+      - name: Install Rush
+        run: npm install -g @microsoft/rush@5.120.0
+      - name: Install dependencies
+        run: rush install
+      - name: Build
+        run: rush build
+      - name: Test
+        run: rush test
+      - name: Typecheck
+        run: rush lint
+      - name: Publish packages
+        run: rush publish-packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

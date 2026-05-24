@@ -44,6 +44,59 @@ describe("@agent-remote/server-node", () => {
     ]);
   });
 
+  it("rejects requests when session auth fails", async () => {
+    const engine = createEngine();
+    const baseUrl = await listen(
+      createNodeAgentRouter(engine, {
+        sessionAuth: {
+          async verifySession({ sessionId, token }) {
+            return sessionId === "session-1" && token === "valid-token";
+          }
+        }
+      })
+    );
+
+    const response = await fetch(`${baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer wrong-token" },
+      body: JSON.stringify({
+        sessionId: "session-1",
+        text: "Export this table"
+      })
+    });
+
+    expect(response.status).toBe(401);
+    expect(engine.handleUserMessage).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Unauthorized session"
+    });
+  });
+
+  it("accepts POST query tokens for session auth", async () => {
+    const engine = createEngine();
+    const baseUrl = await listen(
+      createNodeAgentRouter(engine, {
+        sessionAuth: {
+          async verifySession({ token }) {
+            return token === "valid-token";
+          }
+        }
+      })
+    );
+
+    const response = await fetch(`${baseUrl}/api/chat?session_token=valid-token`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "session-1",
+        text: "Export this table"
+      })
+    });
+
+    expect(response.status).toBe(204);
+    expect(engine.handleUserMessage).toHaveBeenCalledWith("session-1", "Export this table");
+  });
+
   it("routes user messages to the engine", async () => {
     const engine = createEngine();
     const baseUrl = await listen(createNodeAgentRouter(engine));

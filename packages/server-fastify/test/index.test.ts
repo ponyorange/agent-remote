@@ -69,6 +69,35 @@ describe("@agent-remote/server-fastify", () => {
     expect(engine.handleUserMessage).toHaveBeenCalledWith("session-1", "Export this table");
   });
 
+  it("rejects requests when session auth fails", async () => {
+    const fastify = createFastify();
+    const engine = createEngine();
+    const plugin = createFastifyAgentPlugin(engine, {
+      sessionAuth: {
+        async verifySession({ token }) {
+          return token === "valid-token";
+        }
+      }
+    });
+    await plugin(fastify);
+    const reply = createReply();
+
+    await fastify.routes["POST /api/chat"](
+      {
+        headers: { authorization: "Bearer wrong-token" },
+        body: {
+          sessionId: "session-1",
+          text: "Export this table"
+        }
+      },
+      reply
+    );
+
+    expect(reply.statusCode).toBe(401);
+    expect(reply.sentBody).toEqual({ error: "Unauthorized session" });
+    expect(engine.handleUserMessage).not.toHaveBeenCalled();
+  });
+
   it("routes tool results to the engine", async () => {
     const { fastify, engine } = await setup();
     const reply = createReply();

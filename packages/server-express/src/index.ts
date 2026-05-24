@@ -5,12 +5,12 @@ import {
   type ToolResult,
   type TransportConnection
 } from "@agent-remote/core";
-import type { SessionManager } from "@agent-remote/server-core";
+import type { SessionAuth, SessionManager } from "@agent-remote/server-core";
 
 export interface ExpressAgentEngine {
   readonly sessionManager?: SessionManager;
   handleRegisterTools(sessionId: string, tools: ToolDefinition[]): void | Promise<void>;
-  handleUserMessage(sessionId: string, text: string): void | Promise<void>;
+  handleUserMessage(sessionId: string, text: string, messageId?: string): void | Promise<void>;
   handleToolResult(sessionId: string, result: ToolResult): void | Promise<void>;
 }
 
@@ -20,6 +20,7 @@ export interface ExpressAgentRequest {
   url?: string;
   query?: Record<string, unknown>;
   body?: unknown;
+  headers?: Record<string, string | string[] | undefined>;
   on?(event: "close", handler: () => void): unknown;
   emit?(event: "close"): unknown;
 }
@@ -49,6 +50,8 @@ export interface ExpressAgentRouterRoutes {
 
 export interface ExpressAgentRouterOptions {
   readonly routes?: Partial<ExpressAgentRouterRoutes>;
+  readonly sessionAuth?: SessionAuth;
+  readonly heartbeatIntervalMs?: number;
 }
 
 const DEFAULT_ROUTES: ExpressAgentRouterRoutes = {
@@ -72,13 +75,16 @@ export function createExpressAgentRouter(
       const path = getRequestPath(request);
 
       if (request.method === "GET" && path === routes.sse) {
-        handleSse(request, response, engine, getSessionIdFromRequest(request));
+        const sessionId = getSessionIdFromRequest(request);
+        await verifySession(options.sessionAuth, sessionId, readRequestToken(request), request);
+        handleSse(request, response, engine, sessionId, options.heartbeatIntervalMs ?? 30_000);
         return;
       }
 
       if (request.method === "POST" && path === routes.registerTools) {
         const body = readBody(request);
         const sessionId = readSessionId(body);
+        await verifySession(options.sessionAuth, sessionId, readRequestToken(request, body), request);
         const tools = readTools(body);
         await engine.handleRegisterTools(sessionId, tools);
         sendNoContent(response);
@@ -88,8 +94,14 @@ export function createExpressAgentRouter(
       if (request.method === "POST" && path === routes.chat) {
         const body = readBody(request);
         const sessionId = readSessionId(body);
+        await verifySession(options.sessionAuth, sessionId, readRequestToken(request, body), request);
         const text = readString(body, "text");
-        await engine.handleUserMessage(sessionId, text);
+        const messageId = readOptionalString(body, "messageId");
+        if (messageId) {
+          await engine.handleUserMessage(sessionId, text, messageId);
+        } else {
+          await engine.handleUserMessage(sessionId, text);
+        }
         sendNoContent(response);
         return;
       }
@@ -97,6 +109,7 @@ export function createExpressAgentRouter(
       if (request.method === "POST" && path === routes.toolResult) {
         const body = readBody(request);
         const sessionId = readSessionId(body);
+        await verifySession(options.sessionAuth, sessionId, readRequestToken(request, body), request);
         const result = readToolResult(body);
         await engine.handleToolResult(sessionId, result);
         sendNoContent(response);
@@ -115,11 +128,27 @@ export function createExpressAgentRouter(
   };
 }
 
+async function verifySession(
+  sessionAuth: SessionAuth | undefined,
+  sessionId: string,
+  token: string | undefined,
+  request: ExpressAgentRequest
+): Promise<void> {
+  if (!sessionAuth) {
+    return;
+  }
+
+  if (!(await sessionAuth.verifySession({ sessionId, token, request }))) {
+    throw new HttpError(401, "Unauthorized session");
+  }
+}
+
 function handleSse(
   request: ExpressAgentRequest,
   response: ExpressAgentResponse,
   engine: ExpressAgentEngine,
-  sessionId: string
+  sessionId: string,
+  heartbeatIntervalMs: number
 ): void {
   if (!engine.sessionManager) {
     throw new HttpError(501, "SSE requires an engine sessionManager");
@@ -131,6 +160,9 @@ function handleSse(
   response.setHeader("connection", "keep-alive");
   response.setHeader("x-accel-buffering", "no");
   response.write(": connected\n\n");
+  const heartbeat = setInterval(() => {
+    response.write(": heartbeat\n\n");
+  }, heartbeatIntervalMs);
 
   const transport: TransportConnection = {
     send(message) {
@@ -146,6 +178,7 @@ function handleSse(
 
   const handle = engine.sessionManager.attachTransport(sessionId, transport);
   request.on?.("close", () => {
+    clearInterval(heartbeat);
     engine.sessionManager?.detachTransport(sessionId, handle);
   });
 }
@@ -177,6 +210,28 @@ function getSessionIdFromRequest(request: ExpressAgentRequest): string {
   }
 
   return value;
+}
+
+function readRequestToken(
+  request: ExpressAgentRequest,
+  body?: Record<string, unknown>
+): string | undefined {
+  const authorization = request.headers?.authorization;
+  const authorizationValue = Array.isArray(authorization) ? authorization[0] : authorization;
+
+  if (authorizationValue?.startsWith("Bearer ")) {
+    return authorizationValue.slice("Bearer ".length);
+  }
+
+  const query = request.query ?? {};
+  const queryToken = query.session_token ?? query.token;
+
+  if (typeof queryToken === "string") {
+    return queryToken;
+  }
+
+  const bodyToken = body?.sessionToken ?? body?.session_token;
+  return typeof bodyToken === "string" ? bodyToken : undefined;
 }
 
 function readTools(body: Record<string, unknown>): ToolDefinition[] {
@@ -224,6 +279,11 @@ function readString(body: Record<string, unknown>, key: string): string {
   }
 
   return value;
+}
+
+function readOptionalString(body: Record<string, unknown>, key: string): string | undefined {
+  const value = body[key];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function getRequestPath(request: ExpressAgentRequest): string {

@@ -5,18 +5,19 @@ import {
   type ToolResult,
   type TransportConnection
 } from "@agent-remote/core";
-import type { SessionManager } from "@agent-remote/server-core";
+import type { SessionAuth, SessionManager } from "@agent-remote/server-core";
 
 export interface FastifyAgentEngine {
   readonly sessionManager?: SessionManager;
   handleRegisterTools(sessionId: string, tools: ToolDefinition[]): void | Promise<void>;
-  handleUserMessage(sessionId: string, text: string): void | Promise<void>;
+  handleUserMessage(sessionId: string, text: string, messageId?: string): void | Promise<void>;
   handleToolResult(sessionId: string, result: ToolResult): void | Promise<void>;
 }
 
 export interface FastifyAgentRequest {
   query?: unknown;
   body?: unknown;
+  headers?: Record<string, string | string[] | undefined>;
   raw?: {
     on?(event: "close", handler: () => void): unknown;
     emit?(event: "close"): unknown;
@@ -57,6 +58,8 @@ export interface FastifyAgentRoutes {
 
 export interface FastifyAgentPluginOptions {
   readonly routes?: Partial<FastifyAgentRoutes>;
+  readonly sessionAuth?: SessionAuth;
+  readonly heartbeatIntervalMs?: number;
 }
 
 const DEFAULT_ROUTES: FastifyAgentRoutes = {
@@ -78,7 +81,9 @@ export function createFastifyAgentPlugin(
   return async (fastify) => {
     fastify.get(routes.sse, async (request, reply) => {
       try {
-        handleSse(request, reply, engine, getSessionIdFromRequest(request));
+        const sessionId = getSessionIdFromRequest(request);
+        await verifySession(options.sessionAuth, sessionId, readRequestToken(request), request);
+        handleSse(request, reply, engine, sessionId, options.heartbeatIntervalMs ?? 30_000);
       } catch (error) {
         sendError(reply, error);
       }
@@ -88,6 +93,7 @@ export function createFastifyAgentPlugin(
       try {
         const body = readBody(request);
         const sessionId = readSessionId(body);
+        await verifySession(options.sessionAuth, sessionId, readRequestToken(request, body), request);
         const tools = readTools(body);
         await engine.handleRegisterTools(sessionId, tools);
         sendNoContent(reply);
@@ -100,8 +106,14 @@ export function createFastifyAgentPlugin(
       try {
         const body = readBody(request);
         const sessionId = readSessionId(body);
+        await verifySession(options.sessionAuth, sessionId, readRequestToken(request, body), request);
         const text = readString(body, "text");
-        await engine.handleUserMessage(sessionId, text);
+        const messageId = readOptionalString(body, "messageId");
+        if (messageId) {
+          await engine.handleUserMessage(sessionId, text, messageId);
+        } else {
+          await engine.handleUserMessage(sessionId, text);
+        }
         sendNoContent(reply);
       } catch (error) {
         sendError(reply, error);
@@ -112,6 +124,7 @@ export function createFastifyAgentPlugin(
       try {
         const body = readBody(request);
         const sessionId = readSessionId(body);
+        await verifySession(options.sessionAuth, sessionId, readRequestToken(request, body), request);
         const result = readToolResult(body);
         await engine.handleToolResult(sessionId, result);
         sendNoContent(reply);
@@ -122,11 +135,27 @@ export function createFastifyAgentPlugin(
   };
 }
 
+async function verifySession(
+  sessionAuth: SessionAuth | undefined,
+  sessionId: string,
+  token: string | undefined,
+  request: FastifyAgentRequest
+): Promise<void> {
+  if (!sessionAuth) {
+    return;
+  }
+
+  if (!(await sessionAuth.verifySession({ sessionId, token, request }))) {
+    throw new HttpError(401, "Unauthorized session");
+  }
+}
+
 function handleSse(
   request: FastifyAgentRequest,
   reply: FastifyAgentReply,
   engine: FastifyAgentEngine,
-  sessionId: string
+  sessionId: string,
+  heartbeatIntervalMs: number
 ): void {
   if (!engine.sessionManager) {
     throw new HttpError(501, "SSE requires an engine sessionManager");
@@ -143,6 +172,9 @@ function handleSse(
   reply.header("x-accel-buffering", "no");
   reply.hijack?.();
   reply.raw.write(": connected\n\n");
+  const heartbeat = setInterval(() => {
+    reply.raw?.write(": heartbeat\n\n");
+  }, heartbeatIntervalMs);
 
   const raw = reply.raw;
   const transport: TransportConnection = {
@@ -159,6 +191,7 @@ function handleSse(
 
   const handle = engine.sessionManager.attachTransport(sessionId, transport);
   request.raw?.on?.("close", () => {
+    clearInterval(heartbeat);
     engine.sessionManager?.detachTransport(sessionId, handle);
   });
 }
@@ -190,6 +223,28 @@ function getSessionIdFromRequest(request: FastifyAgentRequest): string {
   }
 
   return value;
+}
+
+function readRequestToken(
+  request: FastifyAgentRequest,
+  body?: Record<string, unknown>
+): string | undefined {
+  const authorization = request.headers?.authorization;
+  const authorizationValue = Array.isArray(authorization) ? authorization[0] : authorization;
+
+  if (authorizationValue?.startsWith("Bearer ")) {
+    return authorizationValue.slice("Bearer ".length);
+  }
+
+  const query = isRecord(request.query) ? request.query : {};
+  const queryToken = query.session_token ?? query.token;
+
+  if (typeof queryToken === "string") {
+    return queryToken;
+  }
+
+  const bodyToken = body?.sessionToken ?? body?.session_token;
+  return typeof bodyToken === "string" ? bodyToken : undefined;
 }
 
 function readTools(body: Record<string, unknown>): ToolDefinition[] {
@@ -237,6 +292,11 @@ function readString(body: Record<string, unknown>, key: string): string {
   }
 
   return value;
+}
+
+function readOptionalString(body: Record<string, unknown>, key: string): string | undefined {
+  const value = body[key];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function sendNoContent(reply: FastifyAgentReply): void {

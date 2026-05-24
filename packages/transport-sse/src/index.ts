@@ -1,6 +1,7 @@
 import {
   PROTOCOL_MESSAGE_TYPES,
   validateProtocolMessage,
+  type ProtocolDropEvent,
   type ProtocolMessage,
   type RegisterToolsMessage,
   type ToolResultMessage,
@@ -19,6 +20,7 @@ export interface SseTransportConfig {
   sseUrl: string;
   postUrls: SsePostUrls;
   sessionId: string;
+  retryAttempts?: number;
 }
 
 export interface SseEventSourceLike {
@@ -29,6 +31,7 @@ export interface SseEventSourceLike {
 export interface SseTransportDependencies {
   createEventSource?: (url: string) => SseEventSourceLike;
   fetch?: (url: string, init?: RequestInit) => Promise<Response>;
+  onProtocolDrop?: (event: ProtocolDropEvent) => void;
 }
 
 export function createSseTransportConfig(config: SseTransportConfig): SseTransportConfig {
@@ -73,7 +76,7 @@ export function createSseTransport(
 
   for (const type of Object.values(PROTOCOL_MESSAGE_TYPES)) {
     eventSource.addEventListener(type, (event) => {
-      const message = parseIncomingMessage(event.data);
+      const message = parseIncomingMessage(event.data, dependencies.onProtocolDrop);
 
       if (!message) {
         return;
@@ -93,17 +96,7 @@ export function createSseTransport(
         throw new Error(`SSE transport cannot send message type ${message.type}.`);
       }
 
-      const response = await fetchImpl(request.url, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json"
-        },
-        body: JSON.stringify(request.body)
-      });
-
-      if (!response.ok) {
-        throw new Error(`SSE transport POST failed with status ${response.status}.`);
-      }
+      await postWithRetry(fetchImpl, request, normalizedConfig.retryAttempts ?? 0);
     },
     onMessage(handler) {
       handlers.add(handler);
@@ -113,6 +106,32 @@ export function createSseTransport(
       handlers.clear();
     }
   };
+}
+
+async function postWithRetry(
+  fetchImpl: (url: string, init?: RequestInit) => Promise<Response>,
+  request: { url: string; body: unknown },
+  retryAttempts: number
+): Promise<void> {
+  let lastStatus = 0;
+
+  for (let attempt = 0; attempt <= retryAttempts; attempt += 1) {
+    const response = await fetchImpl(request.url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(request.body)
+    });
+
+    if (response.ok) {
+      return;
+    }
+
+    lastStatus = response.status;
+  }
+
+  throw new Error(`SSE transport POST failed with status ${lastStatus}.`);
 }
 
 function createEventSource(
@@ -135,12 +154,21 @@ function appendSessionId(sseUrl: string, sessionId: string): string {
   return `${sseUrl}${separator}session_id=${encodeURIComponent(sessionId)}`;
 }
 
-function parseIncomingMessage(data: string): ProtocolMessage | null {
+function parseIncomingMessage(
+  data: string,
+  onProtocolDrop?: (event: ProtocolDropEvent) => void
+): ProtocolMessage | null {
   try {
     const parsed = JSON.parse(data) as unknown;
     const result = validateProtocolMessage(parsed);
-    return result.ok ? result.value : null;
+    if (result.ok) {
+      return result.value;
+    }
+
+    onProtocolDrop?.({ reason: "invalid_protocol_message", message: parsed, errors: result.errors });
+    return null;
   } catch {
+    onProtocolDrop?.({ reason: "malformed_json", message: data });
     return null;
   }
 }
@@ -163,7 +191,8 @@ function createPostRequest(
         url: config.postUrls.sendMessage,
         body: {
           sessionId: config.sessionId,
-          text: (message as UserMessage).text
+          text: (message as UserMessage).text,
+          ...((message as UserMessage).messageId ? { messageId: (message as UserMessage).messageId } : {})
         }
       };
     case PROTOCOL_MESSAGE_TYPES.toolResult:

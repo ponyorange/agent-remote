@@ -77,6 +77,27 @@ describe("@agent-remote/transport-sse", () => {
     expect(received).toEqual([message]);
   });
 
+  it("reports invalid SSE payloads through the protocol drop hook", () => {
+    const source = new FakeEventSource("/sse");
+    const drops: unknown[] = [];
+    const transport = createSseTransport(baseConfig(), {
+      createEventSource: () => source,
+      fetch: async () => new Response(null, { status: 204 }),
+      onProtocolDrop: (event) => drops.push(event)
+    });
+    const received: unknown[] = [];
+
+    transport.onMessage((event) => received.push(event));
+    source.emitRaw("agent_remote:assistant_message", "{\"type\":\"chat_message\",\"text\":\"hello\"}");
+    source.emitRaw("agent_remote:assistant_message", "not-json");
+
+    expect(received).toEqual([]);
+    expect(drops).toEqual([
+      expect.objectContaining({ reason: "invalid_protocol_message" }),
+      expect.objectContaining({ reason: "malformed_json" })
+    ]);
+  });
+
   it("posts user messages to the configured chat endpoint", async () => {
     const requests: FetchRequest[] = [];
     const transport = createSseTransport(baseConfig(), {
@@ -95,6 +116,25 @@ describe("@agent-remote/transport-sse", () => {
         }
       }
     ]);
+  });
+
+  it("retries failed POST requests when configured", async () => {
+    const statuses = [503, 204];
+    const requests: FetchRequest[] = [];
+    const transport = createSseTransport(baseConfig({ retryAttempts: 1 }), {
+      createEventSource: (url) => new FakeEventSource(url),
+      fetch: async (url, init) => {
+        requests.push({
+          url,
+          body: JSON.parse(String(init?.body))
+        });
+        return new Response(null, { status: statuses.shift() ?? 204 });
+      }
+    });
+
+    await transport.send(createUserMessage("Export this table"));
+
+    expect(requests).toHaveLength(2);
   });
 
   it("posts tool results to the configured tool result endpoint", async () => {
@@ -170,6 +210,13 @@ class FakeEventSource implements SseEventSourceLike {
   emit(message: ProtocolMessage): void {
     const event = { data: JSON.stringify(message) } as MessageEvent<string>;
     for (const listener of this.listeners.get(message.type) ?? []) {
+      listener(event);
+    }
+  }
+
+  emitRaw(type: string, data: string): void {
+    const event = { data } as MessageEvent<string>;
+    for (const listener of this.listeners.get(type) ?? []) {
       listener(event);
     }
   }

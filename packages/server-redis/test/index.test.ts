@@ -115,6 +115,26 @@ describe("@agent-remote/server-redis", () => {
     expect(received).toEqual([]);
   });
 
+  it("reports dropped broker payloads through observer hooks", async () => {
+    const redis = new FakeRedisClient();
+    const drops: string[] = [];
+    const broker = new RedisMessageBroker(
+      redis,
+      redis,
+      createRedisAgentConfig("redis://localhost:6379"),
+      {
+        onProtocolDrop(reason) {
+          drops.push(reason);
+        }
+      }
+    );
+    await broker.subscribe(() => undefined);
+
+    await redis.emit("agent-remote:messages", "not-json");
+
+    expect(drops).toEqual(["malformed_payload"]);
+  });
+
   it("ignores messages published by the same broker instance", async () => {
     const redis = new FakeRedisClient();
     const broker = new RedisMessageBroker(

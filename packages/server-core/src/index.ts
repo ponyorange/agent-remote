@@ -12,6 +12,7 @@ import {
 export interface ChatMessage {
   role: "user" | "assistant" | "tool";
   content: string;
+  messageId?: string;
   toolCallId?: string;
   toolCalls?: ToolCall[];
 }
@@ -27,11 +28,25 @@ export interface SessionStore {
   delete(sessionId: string): Promise<void>;
 }
 
-export type MessageHandler = (sessionId: string, message: ProtocolMessage) => void | Promise<void>;
+export type MessageHandler = (
+  sessionId: string,
+  message: ProtocolMessage,
+  sourceId?: string
+) => void | Promise<void>;
 
 export interface MessageBroker {
-  publish(sessionId: string, message: ProtocolMessage): Promise<void>;
+  publish(sessionId: string, message: ProtocolMessage, sourceId?: string): Promise<void>;
   subscribe(handler: MessageHandler): void | Promise<void>;
+}
+
+export interface SessionAuthContext {
+  sessionId: string;
+  token?: string;
+  request?: unknown;
+}
+
+export interface SessionAuth {
+  verifySession(context: SessionAuthContext): boolean | Promise<boolean>;
 }
 
 export interface LLMRequest {
@@ -48,10 +63,23 @@ export interface LLMClient {
   chat(params: LLMRequest): Promise<LLMResponse>;
 }
 
+export interface ToolPolicy {
+  filterTools(sessionId: string, tools: ToolDefinition[]): ToolDefinition[] | Promise<ToolDefinition[]>;
+}
+
+export interface AgentEngineObserver {
+  onLLMRequest?(sessionId: string, request: LLMRequest): void;
+  onLLMResponse?(sessionId: string, response: LLMResponse): void;
+  onToolCall?(sessionId: string, call: ToolCall): void;
+  onProtocolDrop?(sessionId: string, reason: string, payload?: unknown): void;
+}
+
 export interface AgentEngineOptions {
   llmClient: LLMClient;
   sessionManager: SessionManager;
   maxSearchResults?: number;
+  toolPolicy?: ToolPolicy;
+  observer?: AgentEngineObserver;
 }
 
 export interface OpenAILLMClientOptions {
@@ -100,8 +128,8 @@ export class InMemoryStore implements SessionStore {
 export class LocalBroker implements MessageBroker {
   private readonly handlers = new Set<MessageHandler>();
 
-  async publish(sessionId: string, message: ProtocolMessage): Promise<void> {
-    await Promise.all([...this.handlers].map((handler) => handler(sessionId, message)));
+  async publish(sessionId: string, message: ProtocolMessage, sourceId?: string): Promise<void> {
+    await Promise.all([...this.handlers].map((handler) => handler(sessionId, message, sourceId)));
   }
 
   subscribe(handler: MessageHandler): void {
@@ -112,12 +140,17 @@ export class LocalBroker implements MessageBroker {
 export class SessionManager {
   private readonly connections = new Map<string, Map<symbol, TransportConnection>>();
   private readonly readyPromise: Promise<void>;
+  private readonly instanceId = `session-manager-${Math.random().toString(36).slice(2)}`;
 
   constructor(
     private readonly store: SessionStore = new InMemoryStore(),
     private readonly broker: MessageBroker = new LocalBroker()
   ) {
-    this.readyPromise = Promise.resolve(this.broker.subscribe(async (sessionId, message) => {
+    this.readyPromise = Promise.resolve(this.broker.subscribe(async (sessionId, message, sourceId) => {
+      if (sourceId === this.instanceId) {
+        return;
+      }
+
       await this.sendToLocalSession(sessionId, message);
     })).then(() => undefined);
   }
@@ -170,11 +203,8 @@ export class SessionManager {
   async sendToSession(sessionId: string, message: ProtocolMessage): Promise<void> {
     await this.ready();
 
-    if (await this.sendToLocalSession(sessionId, message)) {
-      return;
-    }
-
-    await this.broker.publish(sessionId, message);
+    await this.sendToLocalSession(sessionId, message);
+    await this.broker.publish(sessionId, message, this.instanceId);
   }
 
   private async sendToLocalSession(
@@ -202,28 +232,47 @@ export class AgentEngine {
   }
 
   async handleRegisterTools(sessionId: string, tools: ToolDefinition[]): Promise<void> {
-    await this.options.sessionManager.registerTools(sessionId, tools);
+    const allowedTools = this.options.toolPolicy
+      ? await this.options.toolPolicy.filterTools(sessionId, tools)
+      : tools;
+    await this.options.sessionManager.registerTools(sessionId, allowedTools);
   }
 
-  async handleUserMessage(sessionId: string, text: string): Promise<void> {
+  async handleUserMessage(sessionId: string, text: string, messageId?: string): Promise<void> {
     const data = await this.readSession(sessionId);
-    data.messages.push({ role: "user", content: text });
+
+    if (
+      messageId &&
+      data.messages.some((message) => message.role === "user" && message.messageId === messageId)
+    ) {
+      return;
+    }
+
+    data.messages.push({ role: "user", content: text, ...(messageId ? { messageId } : {}) });
     await this.options.sessionManager.saveData(sessionId, data);
     await this.runLLM(sessionId, data);
   }
 
   async handleToolResult(sessionId: string, result: ToolResult): Promise<void> {
     const data = await this.readSession(sessionId);
+
+    if (data.messages.some((message) => message.role === "tool" && message.toolCallId === result.callId)) {
+      return;
+    }
+
     data.messages.push({ role: "tool", toolCallId: result.callId, content: JSON.stringify(result) });
     await this.options.sessionManager.saveData(sessionId, data);
     await this.runLLM(sessionId, data);
   }
 
   private async runLLM(sessionId: string, data: SessionData): Promise<void> {
-    const response = await this.options.llmClient.chat({
+    const request = {
       messages: [...data.messages],
       tools: this.createVisibleTools(data.tools)
-    });
+    };
+    this.options.observer?.onLLMRequest?.(sessionId, request);
+    const response = await this.options.llmClient.chat(request);
+    this.options.observer?.onLLMResponse?.(sessionId, response);
 
     const searchToolCalls = response.toolCalls?.filter((call) => call.name === "search_tools") ?? [];
 
@@ -253,6 +302,7 @@ export class AgentEngine {
     }
 
     for (const call of response.toolCalls ?? []) {
+      this.options.observer?.onToolCall?.(sessionId, call);
       await this.options.sessionManager.sendToSession(sessionId, createToolCallMessage(call));
     }
 

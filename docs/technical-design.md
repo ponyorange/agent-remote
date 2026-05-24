@@ -146,6 +146,15 @@ interface TransportConnection {
 - **前端**：使用 `EventSource` 接收推送（事件类型为 `agent_remote:tool_call` 等），使用 `fetch` 发送 POST 请求到对应端点。
 - **服务端**：向 `http.ServerResponse` 写入 SSE 事件流，并监听 POST 端点。`session_id` 通过 URL 参数或请求体传递。
 
+### 5.4 可观测性 v1
+
+当前实现只提供轻量 hook，不直接绑定 OpenTelemetry：
+
+- `AgentEngineOptions.observer.onLLMRequest/onLLMResponse/onToolCall` 可转接到 pino、winston、OTel span 或自定义 metrics。
+- `BrowserAgentClientOptions.onProtocolDrop` 会报告非法协议消息，避免静默丢弃难以排查。
+- `RedisMessageBrokerOptions.onProtocolDrop` 会报告 Redis broker 收到的 malformed payload。
+- `AgentRemoteLogger` 是 `@agent-remote/core` 暴露的最小 logger shape，用于后续 adapter 注入日志实现。
+
 ---
 
 ## 6. 浏览器端 SDK（@agent-remote/client）

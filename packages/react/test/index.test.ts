@@ -48,7 +48,8 @@ describe("@agent-remote/react", () => {
       },
       {
         type: "agent_remote:user_message",
-        text: "Make a chart"
+        text: "Make a chart",
+        messageId: expect.any(String)
       }
     ]);
   });

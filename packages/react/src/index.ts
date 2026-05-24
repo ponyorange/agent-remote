@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BrowserAgentClient, ToolHandler } from "@agent-remote/client";
 import type { ErrorMessage, ToolDefinition } from "@agent-remote/core";
 
@@ -111,10 +111,15 @@ export function useAgentClient<TClient extends BrowserAgentClient>(
   createClient: () => TClient,
   options: UseAgentClientOptions = {}
 ): AgentClientState<TClient> | null {
-  const state = useMemo(
-    () => (options.enabled === false ? null : createAgentClientState(createClient(), options)),
-    [createClient, options.enabled]
-  );
+  const stateRef = useRef<AgentClientState<TClient> | null>(null);
+
+  if (options.enabled === false) {
+    stateRef.current = null;
+  } else if (!stateRef.current) {
+    stateRef.current = createAgentClientState(createClient(), options);
+  }
+
+  const state = stateRef.current;
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
