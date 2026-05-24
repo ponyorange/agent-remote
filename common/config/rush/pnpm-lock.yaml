@@ -138,6 +138,9 @@ importers:
 
   ../../packages/server-node:
     dependencies:
+      '@agent-remote/core':
+        specifier: workspace:*
+        version: link:../core
       '@agent-remote/server-core':
         specifier: workspace:*
         version: link:../server-core

@@ -1,13 +1,255 @@
+import type { IncomingMessage, RequestListener, ServerResponse } from "node:http";
+import {
+  validateToolDefinition,
+  type ProtocolMessage,
+  type ToolDefinition,
+  type ToolResult,
+  type TransportConnection
+} from "@agent-remote/core";
 import type { SessionManager } from "@agent-remote/server-core";
 
-export interface NodeAgentRouter {
-  readonly kind: "node";
-  readonly manager: SessionManager;
+export interface NodeAgentEngine {
+  readonly sessionManager?: SessionManager;
+  handleRegisterTools(sessionId: string, tools: ToolDefinition[]): void | Promise<void>;
+  handleUserMessage(sessionId: string, text: string): void | Promise<void>;
+  handleToolResult(sessionId: string, result: ToolResult): void | Promise<void>;
 }
 
-export function createNodeAgentRouter(manager: SessionManager): NodeAgentRouter {
-  return {
-    kind: "node",
-    manager
+export interface NodeAgentRouterRoutes {
+  readonly sse: string;
+  readonly registerTools: string;
+  readonly chat: string;
+  readonly toolResult: string;
+}
+
+export interface NodeAgentRouterOptions {
+  readonly routes?: Partial<NodeAgentRouterRoutes>;
+}
+
+export type NodeAgentRouter = RequestListener;
+
+const DEFAULT_ROUTES: NodeAgentRouterRoutes = {
+  sse: "/sse",
+  registerTools: "/api/register_tools",
+  chat: "/api/chat",
+  toolResult: "/api/tool_result"
+};
+
+export function createNodeAgentRouter(
+  engine: NodeAgentEngine,
+  options: NodeAgentRouterOptions = {}
+): NodeAgentRouter {
+  const routes = {
+    ...DEFAULT_ROUTES,
+    ...options.routes
   };
+
+  return async (request, response) => {
+    try {
+      const url = new URL(request.url ?? "/", "http://agent-remote.local");
+
+      if (request.method === "GET" && url.pathname === routes.sse) {
+        handleSse(request, response, engine, getSessionIdFromUrl(url));
+        return;
+      }
+
+      if (request.method === "POST" && url.pathname === routes.registerTools) {
+        const body = await readJsonBody(request);
+        const sessionId = readSessionId(body);
+        const tools = readTools(body);
+        await engine.handleRegisterTools(sessionId, tools);
+        sendNoContent(response);
+        return;
+      }
+
+      if (request.method === "POST" && url.pathname === routes.chat) {
+        const body = await readJsonBody(request);
+        const sessionId = readSessionId(body);
+        const text = readString(body, "text");
+        await engine.handleUserMessage(sessionId, text);
+        sendNoContent(response);
+        return;
+      }
+
+      if (request.method === "POST" && url.pathname === routes.toolResult) {
+        const body = await readJsonBody(request);
+        const sessionId = readSessionId(body);
+        const result = readToolResult(body);
+        await engine.handleToolResult(sessionId, result);
+        sendNoContent(response);
+        return;
+      }
+
+      sendJson(response, 404, { error: "Not found" });
+    } catch (error) {
+      if (error instanceof HttpError) {
+        sendJson(response, error.statusCode, { error: error.message });
+        return;
+      }
+
+      sendJson(response, 500, { error: "Internal server error" });
+    }
+  };
+}
+
+function handleSse(
+  request: IncomingMessage,
+  response: ServerResponse,
+  engine: NodeAgentEngine,
+  sessionId: string
+): void {
+  if (!engine.sessionManager) {
+    throw new HttpError(501, "SSE requires an engine sessionManager");
+  }
+
+  response.writeHead(200, {
+    "content-type": "text/event-stream",
+    "cache-control": "no-cache, no-transform",
+    connection: "keep-alive",
+    "x-accel-buffering": "no"
+  });
+  response.write(": connected\n\n");
+
+  const transport: TransportConnection = {
+    send(message) {
+      response.write(formatSseEvent(message));
+    },
+    onMessage() {
+      // SSE is server-to-client only; POST endpoints carry client-to-server messages.
+    },
+    close() {
+      response.end();
+    }
+  };
+
+  engine.sessionManager.attachTransport(sessionId, transport);
+  request.on("close", () => {
+    engine.sessionManager?.detachTransport(sessionId);
+  });
+}
+
+async function readJsonBody(request: IncomingMessage): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  const rawBody = Buffer.concat(chunks).toString("utf8");
+
+  if (!rawBody.trim()) {
+    return {};
+  }
+
+  try {
+    const value = JSON.parse(rawBody) as unknown;
+
+    if (!isRecord(value)) {
+      throw new HttpError(400, "JSON body must be an object");
+    }
+
+    return value;
+  } catch (error) {
+    if (error instanceof HttpError) {
+      throw error;
+    }
+
+    throw new HttpError(400, "Invalid JSON body");
+  }
+}
+
+function readSessionId(body: Record<string, unknown>): string {
+  const value = body.sessionId ?? body.session_id;
+
+  if (typeof value !== "string" || value.length === 0) {
+    throw new HttpError(400, "sessionId is required");
+  }
+
+  return value;
+}
+
+function getSessionIdFromUrl(url: URL): string {
+  const sessionId = url.searchParams.get("session_id") ?? url.searchParams.get("sessionId");
+
+  if (!sessionId) {
+    throw new HttpError(400, "sessionId is required");
+  }
+
+  return sessionId;
+}
+
+function readTools(body: Record<string, unknown>): ToolDefinition[] {
+  if (!Array.isArray(body.tools)) {
+    throw new HttpError(400, "tools must be an array");
+  }
+
+  return body.tools.map((tool, index) => {
+    const result = validateToolDefinition(tool);
+
+    if (!result.ok) {
+      throw new HttpError(400, `Invalid tool at index ${index}`);
+    }
+
+    return result.value;
+  });
+}
+
+function readToolResult(body: Record<string, unknown>): ToolResult {
+  const input = isRecord(body.result) ? body.result : body;
+  const callId = input.callId;
+  const ok = input.ok;
+
+  if (typeof callId !== "string" || callId.length === 0) {
+    throw new HttpError(400, "tool result callId is required");
+  }
+
+  if (typeof ok !== "boolean") {
+    throw new HttpError(400, "tool result ok must be a boolean");
+  }
+
+  return {
+    callId,
+    ok,
+    ...(input.result !== undefined ? { result: input.result } : {}),
+    ...(typeof input.error === "string" ? { error: input.error } : {})
+  };
+}
+
+function readString(body: Record<string, unknown>, key: string): string {
+  const value = body[key];
+
+  if (typeof value !== "string") {
+    throw new HttpError(400, `${key} must be a string`);
+  }
+
+  return value;
+}
+
+function sendNoContent(response: ServerResponse): void {
+  response.writeHead(204);
+  response.end();
+}
+
+function sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
+  response.writeHead(statusCode, {
+    "content-type": "application/json"
+  });
+  response.end(JSON.stringify(body));
+}
+
+function formatSseEvent(message: ProtocolMessage): string {
+  return `event: ${message.type}\ndata: ${JSON.stringify(message)}\n\n`;
+}
+
+function isRecord(input: unknown): input is Record<string, unknown> {
+  return typeof input === "object" && input !== null && !Array.isArray(input);
+}
+
+class HttpError extends Error {
+  constructor(
+    readonly statusCode: number,
+    message: string
+  ) {
+    super(message);
+  }
 }
