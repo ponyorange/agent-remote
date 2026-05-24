@@ -1,6 +1,25 @@
-import type { ToolCall, ToolDefinition, ToolResult, TransportConnection } from "@agent-remote/core";
+import {
+  PROTOCOL_MESSAGE_TYPES,
+  createRegisterToolsMessage,
+  createToolResultMessage,
+  createUserMessage,
+  normalizeToolDefinition,
+  validateProtocolMessage,
+  type ErrorMessage,
+  type ToolCall,
+  type ToolDefinition,
+  type ToolResult,
+  type TransportConnection
+} from "@agent-remote/core";
 
 export type ToolHandler = (args: unknown) => unknown | Promise<unknown>;
+
+export interface BrowserAgentClientEvents {
+  message: string;
+  error: ErrorMessage;
+}
+
+export type BrowserAgentClientEvent = keyof BrowserAgentClientEvents;
 
 interface RegisteredTool {
   definition: ToolDefinition;
@@ -11,7 +30,8 @@ export class ToolRegistry {
   private readonly tools = new Map<string, RegisteredTool>();
 
   register(definition: ToolDefinition, handler: ToolHandler): void {
-    this.tools.set(definition.name, { definition, handler });
+    const normalizedDefinition = normalizeToolDefinition(definition);
+    this.tools.set(normalizedDefinition.name, { definition: normalizedDefinition, handler });
   }
 
   unregister(name: string): void {
@@ -51,24 +71,72 @@ export class ToolRegistry {
 
 export class BrowserAgentClient {
   readonly registry = new ToolRegistry();
+  private readonly eventHandlers = new Map<
+    BrowserAgentClientEvent,
+    Set<(data: BrowserAgentClientEvents[BrowserAgentClientEvent]) => void>
+  >();
 
-  constructor(readonly transport: TransportConnection) {}
-
-  connect(): void {
-    this.transport.send({
-      type: "agent_remote:register_tools",
-      tools: this.registry.getDefinitions()
+  constructor(readonly transport: TransportConnection) {
+    this.transport.onMessage((message) => {
+      void this.handleTransportMessage(message);
     });
   }
 
-  sendUserMessage(text: string): void {
-    this.transport.send({
-      type: "agent_remote:user_message",
-      text
-    });
+  async connect(): Promise<void> {
+    await this.transport.send(createRegisterToolsMessage(this.registry.getDefinitions()));
   }
 
-  disconnect(): void {
-    this.transport.close();
+  async sendUserMessage(text: string): Promise<void> {
+    await this.transport.send(createUserMessage(text));
+  }
+
+  on<TEvent extends BrowserAgentClientEvent>(
+    event: TEvent,
+    handler: (data: BrowserAgentClientEvents[TEvent]) => void
+  ): void {
+    const handlers = this.eventHandlers.get(event) ?? new Set();
+    handlers.add(handler as (data: BrowserAgentClientEvents[BrowserAgentClientEvent]) => void);
+    this.eventHandlers.set(event, handlers);
+  }
+
+  async disconnect(): Promise<void> {
+    await this.transport.close();
+    this.eventHandlers.clear();
+  }
+
+  private async handleTransportMessage(message: unknown): Promise<void> {
+    const result = validateProtocolMessage(message);
+
+    if (!result.ok) {
+      return;
+    }
+
+    switch (result.value.type) {
+      case PROTOCOL_MESSAGE_TYPES.toolCall:
+        await this.handleToolCall(result.value);
+        break;
+      case PROTOCOL_MESSAGE_TYPES.assistantMessage:
+        this.emit("message", result.value.text);
+        break;
+      case PROTOCOL_MESSAGE_TYPES.error:
+        this.emit("error", result.value);
+        break;
+      default:
+        break;
+    }
+  }
+
+  private async handleToolCall(message: ToolCall): Promise<void> {
+    const result = await this.registry.execute(message);
+    await this.transport.send(createToolResultMessage(result));
+  }
+
+  private emit<TEvent extends BrowserAgentClientEvent>(
+    event: TEvent,
+    data: BrowserAgentClientEvents[TEvent]
+  ): void {
+    for (const handler of this.eventHandlers.get(event) ?? []) {
+      handler(data);
+    }
   }
 }
