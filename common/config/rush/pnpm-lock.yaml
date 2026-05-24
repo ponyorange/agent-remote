@@ -169,6 +169,9 @@ importers:
 
   ../../packages/server-redis:
     dependencies:
+      '@agent-remote/core':
+        specifier: workspace:*
+        version: link:../core
       '@agent-remote/server-core':
         specifier: workspace:*
         version: link:../server-core
