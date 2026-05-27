@@ -19,10 +19,46 @@
 npm install -g @microsoft/rush@5.120.0
 rush install
 rush build
-rush test -t agent-remote-example-express-sse-react
+rush test -t agent-remote-example-ai-designer-board
 ```
 
-可运行示例位于 `examples/express-sse-react`。它使用已发布包入口，打开 SSE 连接，在浏览器端注册一个低风险工具，并验证服务端可以发送 `agent_remote:tool_call`。
+旗舰可运行示例位于 `examples/ai-designer-board`。这是一个 AI 设计师白板：浏览器注册画布工具，服务端 Agent 使用 DeepSeek 或本地 scripted fallback 思考，Agent 会通过 Agent Remote 直接创建、排版、美化、撤销和导出 React Konva 画板元素。
+
+## AI 设计师白板 Demo
+
+本地运行：
+
+```bash
+cd examples/ai-designer-board
+rushx build
+rushx dev
+```
+
+打开 `http://localhost:3000` 后，可以尝试这些提示词：
+
+- “帮我在画布中间放一个蓝色圆形，直径 200px，并在下方添加文字 Hello World。”
+- “把这几个元素水平均匀分布，并给背景加一个深蓝到天蓝的渐变。”
+- “把整个画板变成极简风格，并添加一个小型进度图表。”
+- “导出为 PNG。”
+- “我不喜欢刚才的修改，回到上一步。”
+
+如果要接入真实 LLM，启动前设置 DeepSeek API Key：
+
+```bash
+export DEEPSEEK_API_KEY=sk-...
+rushx dev
+```
+
+如果没有设置 `DEEPSEEK_API_KEY`，示例会自动切换到本地 scripted LLM，因此任何人都可以直接运行体验。
+
+运行时你可以直观看到这些 Agent Remote 能力：
+
+- 浏览器工具：图形、文字、排版、渐变、图表、撤销、导出和画板状态都在浏览器中执行，后端 API 无法直接替代。
+- 服务端大脑：API Key 留在服务端，浏览器只接收受控的 `agent_remote:tool_call`。
+- 动态工具发现：高级 L2 工具通过 `search_tools` 按需发现，而不是一次性塞给模型。
+- 安全确认：导出、清空等高风险工具会在浏览器中弹窗确认。
+- 可观测过程：聊天窗口会展示用户消息、AI 回复、工具调用、工具结果、loading 状态和失败信息。
+- 循环保护：为了支持复杂设计任务，demo 最多允许 50 轮工具调用；如果模型失控，会自动停止并给出 assistant 提示。
 
 ## 架构概览
 
@@ -71,7 +107,7 @@ rush test -t agent-remote-example-express-sse-react
 
 示例：
 
-- `agent-remote-example-express-sse-react`: 私有示例项目，演示 Express + SSE + React 的端到端链路。
+- `agent-remote-example-ai-designer-board`: 私有示例项目，演示 Express + SSE + DeepSeek-compatible LLM + React Konva 白板、浏览器工具确认、动态工具发现和 PNG 导出。
 
 ## 如何选择包
 
@@ -227,7 +263,7 @@ rush lint
 
 ```bash
 rush build -t agent-remote-client
-rush test -t agent-remote-example-express-sse-react
+rush test -t agent-remote-example-ai-designer-board
 rush lint -t agent-remote-server-core
 ```
 
@@ -243,7 +279,7 @@ rush version-packages
 rush publish-packages
 ```
 
-`packages/*` 中的公开包都包含 `publishConfig.access = "public"`。示例包 `agent-remote-example-express-sse-react` 是私有包，不发布到 npm。
+`packages/*` 中的公开包都包含 `publishConfig.access = "public"`。示例包 `agent-remote-example-ai-designer-board` 是私有包，不发布到 npm。
 
 ## 兼容性
 

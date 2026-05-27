@@ -201,6 +201,33 @@ describe("agent-remote-client", () => {
     ]);
   });
 
+  it("emits an error when sending a tool result fails", async () => {
+    const transport = new FakeTransport();
+    transport.failToolResultSend = true;
+    const client = new BrowserAgentClient(transport);
+    const errors: string[] = [];
+    client.on("error", (error) => errors.push(error.message));
+    client.registry.register(
+      {
+        name: "sum",
+        description: "Sum numbers",
+        parameters: { type: "object" }
+      },
+      () => 5
+    );
+
+    await transport.emit(
+      createToolCallMessage({
+        callId: "call-1",
+        name: "sum",
+        arguments: { left: 2, right: 3 }
+      })
+    );
+    await flushAsync();
+
+    expect(errors).toEqual(["Failed to send tool result: transport send failed"]);
+  });
+
   it("re-sends cached tool results for duplicate tool calls by callId", async () => {
     const transport = new FakeTransport();
     const client = new BrowserAgentClient(transport);
@@ -522,8 +549,12 @@ class FakeTransport implements TransportConnection {
   private readonly reconnectHandlers: Array<() => void> = [];
   supportsHandshake = false;
   closed = false;
+  failToolResultSend = false;
 
   async send(message: ProtocolMessage): Promise<void> {
+    if (this.failToolResultSend && message.type === "agent_remote:tool_result") {
+      throw new Error("transport send failed");
+    }
     this.sent.push(message);
   }
 
@@ -564,6 +595,11 @@ async function flushAsync(): Promise<void> {
 
 class FakeEventSource {
   private readonly listeners = new Map<string, Array<(event: MessageEvent<string>) => void>>();
+  readyState = 0;
+
+  constructor() {
+    queueMicrotask(() => this.open());
+  }
 
   addEventListener(type: string, listener: (event: MessageEvent<string>) => void): void {
     const listeners = this.listeners.get(type) ?? [];
@@ -571,6 +607,14 @@ class FakeEventSource {
     this.listeners.set(type, listeners);
   }
   close(): void {}
+
+  open(): void {
+    this.readyState = 1;
+    const event = { data: "" } as MessageEvent<string>;
+    for (const listener of this.listeners.get("open") ?? []) {
+      listener(event);
+    }
+  }
 
   async emit(message: ProtocolMessage): Promise<void> {
     const event = { data: JSON.stringify(message) } as MessageEvent<string>;

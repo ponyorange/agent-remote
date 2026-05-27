@@ -1,12 +1,12 @@
 {
-  "name": "agent-remote-example-express-sse-react",
+  "name": "agent-remote-example-ai-designer-board",
   "version": "0.1.0",
   "private": true,
-  "description": "Runnable Express + SSE + React example for agent-remote.",
+  "description": "AI designer whiteboard demo for agent-remote with Express, SSE, React, Konva, and DeepSeek.",
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "tsup src/server.ts src/App.tsx --format esm --clean",
+    "build": "tsup --config tsup.config.ts",
     "dev": "tsx src/server.ts",
     "test": "vitest run",
     "lint": "tsc --noEmit"
@@ -17,21 +17,21 @@
     "agent-remote-react": "workspace:*",
     "agent-remote-server-core": "workspace:*",
     "agent-remote-server-express": "workspace:*",
-    "react": "^18.2.0",
+    "agent-remote-transport-sse": "workspace:*",
     "express": "~5.2.1",
-    "agent-remote-server-node": "workspace:*",
-    "agent-remote-server-fastify": "workspace:*",
-    "agent-remote-server-redis": "workspace:*",
-    "agent-remote-transport-ws": "workspace:*",
-    "agent-remote-transport-sse": "workspace:*"
+    "konva": "^9.3.18",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-konva": "^18.2.10"
   },
   "devDependencies": {
+    "@types/express": "~5.0.6",
     "@types/node": "^20.11.30",
     "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
     "tsup": "^8.0.2",
     "tsx": "^4.0.0",
     "typescript": "~5.4.5",
-    "vitest": "^1.6.1",
-    "@types/express": "~5.0.6"
+    "vitest": "^1.6.1"
   }
 }

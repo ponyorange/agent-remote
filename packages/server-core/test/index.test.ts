@@ -291,6 +291,29 @@ describe("agent-remote-server-core", () => {
     });
   });
 
+  it("stops sending tool calls after the configured tool round limit", async () => {
+    const send = vi.fn();
+    const manager = new SessionManager();
+    const firstToolCall = { callId: "call-1", name: "export_csv", arguments: { format: "csv" } };
+    const repeatedToolCall = { callId: "call-2", name: "export_csv", arguments: { format: "csv" } };
+    manager.attachTransport("session-1", transportWithSend(send));
+    const engine = new AgentEngine({
+      llmClient: new QueueLLMClient([{ toolCalls: [firstToolCall] }, { toolCalls: [repeatedToolCall] }]),
+      sessionManager: manager,
+      maxToolRounds: 1
+    });
+
+    await engine.handleUserMessage("session-1", "Export this table");
+    await engine.handleToolResult("session-1", { callId: "call-1", ok: true, result: "done" });
+
+    expect(send).toHaveBeenCalledWith(createToolCallMessage(firstToolCall));
+    expect(send).not.toHaveBeenCalledWith(createToolCallMessage(repeatedToolCall));
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      type: "agent_remote:assistant_message",
+      text: expect.stringContaining("工具调用次数过多")
+    }));
+  });
+
   it("emits observer hooks around LLM requests and tool calls", async () => {
     const manager = new SessionManager();
     const events: string[] = [];
@@ -339,6 +362,58 @@ describe("agent-remote-server-core", () => {
         },
         { role: "assistant", content: "Tool result processed" }
       ]
+    });
+  });
+
+  it("waits for all tool results from the same assistant message before continuing", async () => {
+    const send = vi.fn();
+    const manager = new SessionManager();
+    const firstToolCall = { callId: "call-1", name: "create_shape", arguments: { id: "shape-1" } };
+    const secondToolCall = { callId: "call-2", name: "create_text", arguments: { id: "text-1" } };
+    manager.attachTransport("session-1", transportWithSend(send));
+    const llmClient = new QueueLLMClient([
+      { toolCalls: [firstToolCall, secondToolCall] },
+      { text: "Both tools processed" }
+    ]);
+    const engine = new AgentEngine({ llmClient, sessionManager: manager });
+
+    await engine.handleUserMessage("session-1", "Create a shape and text");
+    await engine.handleToolResult("session-1", { callId: "call-1", ok: true, result: "shape done" });
+
+    expect(llmClient.requests).toHaveLength(1);
+    expect(send).not.toHaveBeenCalledWith(createAssistantMessage("Both tools processed"));
+
+    await engine.handleToolResult("session-1", { callId: "call-2", ok: true, result: "text done" });
+
+    expect(llmClient.requests).toHaveLength(2);
+    expect(send).toHaveBeenCalledWith(createAssistantMessage("Both tools processed"));
+  });
+
+  it("serializes concurrent tool results before checking whether a tool batch is complete", async () => {
+    const send = vi.fn();
+    const manager = new SessionManager();
+    const firstToolCall = { callId: "call-1", name: "create_shape", arguments: { id: "shape-1" } };
+    const secondToolCall = { callId: "call-2", name: "create_text", arguments: { id: "text-1" } };
+    manager.attachTransport("session-1", transportWithSend(send));
+    const llmClient = new QueueLLMClient([
+      { toolCalls: [firstToolCall, secondToolCall] },
+      { text: "Concurrent tools processed" }
+    ]);
+    const engine = new AgentEngine({ llmClient, sessionManager: manager });
+
+    await engine.handleUserMessage("session-1", "Create a shape and text");
+    await Promise.all([
+      engine.handleToolResult("session-1", { callId: "call-1", ok: true, result: "shape done" }),
+      engine.handleToolResult("session-1", { callId: "call-2", ok: true, result: "text done" })
+    ]);
+
+    expect(llmClient.requests).toHaveLength(2);
+    expect(send).toHaveBeenCalledWith(createAssistantMessage("Concurrent tools processed"));
+    await expect(manager.getData("session-1")).resolves.toMatchObject({
+      messages: expect.arrayContaining([
+        expect.objectContaining({ role: "tool", toolCallId: "call-1" }),
+        expect.objectContaining({ role: "tool", toolCallId: "call-2" })
+      ])
     });
   });
 

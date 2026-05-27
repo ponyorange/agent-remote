@@ -78,6 +78,7 @@ export interface AgentEngineOptions {
   llmClient: LLMClient;
   sessionManager: SessionManager;
   maxSearchResults?: number;
+  maxToolRounds?: number;
   toolPolicy?: ToolPolicy;
   observer?: AgentEngineObserver;
 }
@@ -224,45 +225,72 @@ export class SessionManager {
 
 export class AgentEngine {
   private readonly maxSearchResults: number;
+  private readonly maxToolRounds: number;
+  private readonly sessionQueues = new Map<string, Promise<void>>();
   readonly sessionManager: SessionManager;
 
   constructor(private readonly options: AgentEngineOptions) {
     this.maxSearchResults = options.maxSearchResults ?? 5;
+    this.maxToolRounds = options.maxToolRounds ?? 8;
     this.sessionManager = options.sessionManager;
   }
 
   async handleRegisterTools(sessionId: string, tools: ToolDefinition[]): Promise<void> {
-    const allowedTools = this.options.toolPolicy
-      ? await this.options.toolPolicy.filterTools(sessionId, tools)
-      : tools;
-    await this.options.sessionManager.registerTools(sessionId, allowedTools);
+    await this.runInSessionQueue(sessionId, async () => {
+      const allowedTools = this.options.toolPolicy
+        ? await this.options.toolPolicy.filterTools(sessionId, tools)
+        : tools;
+      await this.options.sessionManager.registerTools(sessionId, allowedTools);
+    });
   }
 
   async handleUserMessage(sessionId: string, text: string, messageId?: string): Promise<void> {
-    const data = await this.readSession(sessionId);
+    await this.runInSessionQueue(sessionId, async () => {
+      const data = await this.readSession(sessionId);
 
-    if (
-      messageId &&
-      data.messages.some((message) => message.role === "user" && message.messageId === messageId)
-    ) {
-      return;
-    }
+      if (
+        messageId &&
+        data.messages.some((message) => message.role === "user" && message.messageId === messageId)
+      ) {
+        return;
+      }
 
-    data.messages.push({ role: "user", content: text, ...(messageId ? { messageId } : {}) });
-    await this.options.sessionManager.saveData(sessionId, data);
-    await this.runLLM(sessionId, data);
+      data.messages.push({ role: "user", content: text, ...(messageId ? { messageId } : {}) });
+      await this.options.sessionManager.saveData(sessionId, data);
+      await this.runLLM(sessionId, data);
+    });
   }
 
   async handleToolResult(sessionId: string, result: ToolResult): Promise<void> {
-    const data = await this.readSession(sessionId);
+    await this.runInSessionQueue(sessionId, async () => {
+      const data = await this.readSession(sessionId);
 
-    if (data.messages.some((message) => message.role === "tool" && message.toolCallId === result.callId)) {
-      return;
+      if (data.messages.some((message) => message.role === "tool" && message.toolCallId === result.callId)) {
+        return;
+      }
+
+      data.messages.push({ role: "tool", toolCallId: result.callId, content: JSON.stringify(result) });
+      await this.options.sessionManager.saveData(sessionId, data);
+      if (this.hasPendingToolResultsForAssistantCall(data, result.callId)) {
+        return;
+      }
+      await this.runLLM(sessionId, data);
+    });
+  }
+
+  private async runInSessionQueue<T>(sessionId: string, operation: () => Promise<T>): Promise<T> {
+    const previous = this.sessionQueues.get(sessionId) ?? Promise.resolve();
+    const run = previous.catch(() => undefined).then(operation);
+    const queue = run.then(() => undefined, () => undefined);
+    this.sessionQueues.set(sessionId, queue);
+
+    try {
+      return await run;
+    } finally {
+      if (this.sessionQueues.get(sessionId) === queue) {
+        this.sessionQueues.delete(sessionId);
+      }
     }
-
-    data.messages.push({ role: "tool", toolCallId: result.callId, content: JSON.stringify(result) });
-    await this.options.sessionManager.saveData(sessionId, data);
-    await this.runLLM(sessionId, data);
   }
 
   private async runLLM(sessionId: string, data: SessionData): Promise<void> {
@@ -273,6 +301,11 @@ export class AgentEngine {
     this.options.observer?.onLLMRequest?.(sessionId, request);
     const response = await this.options.llmClient.chat(request);
     this.options.observer?.onLLMResponse?.(sessionId, response);
+
+    if ((response.toolCalls?.length ?? 0) > 0 && this.countToolRoundsSinceLastUser(data) >= this.maxToolRounds) {
+      await this.sendToolRoundLimitMessage(sessionId, data);
+      return;
+    }
 
     const searchToolCalls = response.toolCalls?.filter((call) => call.name === "search_tools") ?? [];
 
@@ -315,6 +348,42 @@ export class AgentEngine {
 
   private async readSession(sessionId: string): Promise<SessionData> {
     return (await this.options.sessionManager.getData(sessionId)) ?? { tools: [], messages: [] };
+  }
+
+  private countToolRoundsSinceLastUser(data: SessionData): number {
+    let count = 0;
+    for (let index = data.messages.length - 1; index >= 0; index -= 1) {
+      const message = data.messages[index];
+      if (message.role === "user") {
+        break;
+      }
+      if (message.role === "assistant" && message.toolCalls && message.toolCalls.length > 0) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  private async sendToolRoundLimitMessage(sessionId: string, data: SessionData): Promise<void> {
+    const text = `已停止：工具调用次数过多（已达到 ${this.maxToolRounds} 轮上限）。请调整指令后重试。`;
+    data.messages.push({ role: "assistant", content: text });
+    await this.options.sessionManager.saveData(sessionId, data);
+    await this.options.sessionManager.sendToSession(sessionId, createAssistantMessage(text));
+  }
+
+  private hasPendingToolResultsForAssistantCall(data: SessionData, callId: string): boolean {
+    const assistantMessage = [...data.messages]
+      .reverse()
+      .find((message) => message.role === "assistant" && message.toolCalls?.some((call) => call.callId === callId));
+
+    if (!assistantMessage?.toolCalls || assistantMessage.toolCalls.length <= 1) {
+      return false;
+    }
+
+    const completedCallIds = new Set(
+      data.messages.flatMap((message) => (message.role === "tool" && message.toolCallId ? [message.toolCallId] : []))
+    );
+    return assistantMessage.toolCalls.some((call) => !completedCallIds.has(call.callId));
   }
 
   private searchTools(tools: ToolDefinition[], args: unknown): ToolDefinition[] {
