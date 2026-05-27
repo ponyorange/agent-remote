@@ -174,14 +174,22 @@ export class BrowserAgentClient {
   private async handleToolCall(message: ToolCall): Promise<void> {
     const existingResult = this.toolCallResults.get(message.callId);
 
-    if (existingResult) {
-      await this.transport.send(createToolResultMessage(await existingResult));
-      return;
-    }
+    try {
+      if (existingResult) {
+        await this.transport.send(createToolResultMessage(await existingResult));
+        return;
+      }
 
-    const resultPromise = this.executeToolCall(message);
-    this.toolCallResults.set(message.callId, resultPromise);
-    await this.transport.send(createToolResultMessage(await resultPromise));
+      const resultPromise = this.executeToolCall(message);
+      this.toolCallResults.set(message.callId, resultPromise);
+      await this.transport.send(createToolResultMessage(await resultPromise));
+    } catch (error) {
+      this.emit("error", {
+        type: PROTOCOL_MESSAGE_TYPES.error,
+        message: `Failed to send tool result: ${error instanceof Error ? error.message : String(error)}`,
+        code: PROTOCOL_ERROR_CODES.invalidMessage
+      });
+    }
   }
 
   private async executeToolCall(message: ToolCall): Promise<ToolResult> {

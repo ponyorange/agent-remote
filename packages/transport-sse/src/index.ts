@@ -21,9 +21,11 @@ export interface SseTransportConfig {
   postUrls: SsePostUrls;
   sessionId: string;
   retryAttempts?: number;
+  openTimeoutMs?: number;
 }
 
 export interface SseEventSourceLike {
+  readonly readyState?: number;
   addEventListener(type: string, listener: (event: MessageEvent<string>) => void): void;
   close(): void;
 }
@@ -74,6 +76,8 @@ export function createSseTransport(
     throw new Error("SSE transport requires fetch.");
   }
 
+  let openPromise: Promise<void> | undefined;
+
   for (const type of Object.values(PROTOCOL_MESSAGE_TYPES)) {
     eventSource.addEventListener(type, (event) => {
       const message = parseIncomingMessage(event.data, dependencies.onProtocolDrop);
@@ -90,6 +94,8 @@ export function createSseTransport(
 
   return {
     async send(message) {
+      openPromise ??= waitForEventSourceOpen(eventSource, normalizedConfig.openTimeoutMs ?? 5_000);
+      await openPromise;
       const request = createPostRequest(normalizedConfig, message);
 
       if (!request) {
@@ -106,6 +112,24 @@ export function createSseTransport(
       handlers.clear();
     }
   };
+}
+
+function waitForEventSourceOpen(eventSource: SseEventSourceLike, openTimeoutMs: number): Promise<void> {
+  if (eventSource.readyState === 1) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      eventSource.close();
+      reject(new Error(`SSE transport did not open within ${openTimeoutMs}ms.`));
+    }, openTimeoutMs);
+
+    eventSource.addEventListener("open", () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+  });
 }
 
 async function postWithRetry(

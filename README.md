@@ -19,10 +19,46 @@ This repository uses Rush + pnpm. Start by installing dependencies, building all
 npm install -g @microsoft/rush@5.120.0
 rush install
 rush build
-rush test -t agent-remote-example-express-sse-react
+rush test -t agent-remote-example-ai-designer-board
 ```
 
-The runnable demo lives in `examples/express-sse-react`. It uses published package entry points, opens an SSE stream, registers a low-risk browser tool, and verifies that the server can stream an `agent_remote:tool_call`.
+The flagship runnable demo lives in `examples/ai-designer-board`. It is an AI designer whiteboard: the browser registers canvas tools, the server-side agent thinks with DeepSeek or a scripted fallback, and the agent visibly creates, arranges, styles, undoes, and exports React Konva elements through Agent Remote.
+
+## AI Designer Board Demo
+
+Run the demo locally:
+
+```bash
+cd examples/ai-designer-board
+rushx build
+rushx dev
+```
+
+Open `http://localhost:3000`, then try prompts such as:
+
+- "Place a blue circle in the middle of the canvas, 200px wide, and add Hello World text below it."
+- "Distribute these elements evenly and add a dark blue to cyan gradient background."
+- "Make the whole board minimalist and add a small progress chart."
+- "Export the canvas as PNG."
+- "Undo the last change."
+
+For real LLM calls, set DeepSeek credentials before starting the server:
+
+```bash
+export DEEPSEEK_API_KEY=sk-...
+rushx dev
+```
+
+If `DEEPSEEK_API_KEY` is not set, the demo automatically uses a scripted local LLM so anyone can run it without external credentials.
+
+What to watch for:
+
+- Browser-side tools: shapes, text, layout, gradients, charts, undo, export, and board state all run in the browser where the canvas lives.
+- Server-side brain: API keys stay on the server, and the browser only receives controlled `agent_remote:tool_call` messages.
+- Dynamic tools: advanced L2 tools are discovered with `search_tools` instead of always being sent to the model.
+- Safety: high-risk tools such as export and clear require browser confirmation.
+- Observability: the chat panel shows user messages, assistant replies, tool calls, tool results, loading state, and failures.
+- Loop protection: the demo allows up to 50 tool-call rounds for rich design sessions, then stops runaway loops with an assistant message.
 
 ## Architecture
 
@@ -71,7 +107,7 @@ Server side:
 
 Example:
 
-- `agent-remote-example-express-sse-react`: Private example project demonstrating the Express + SSE + React end-to-end flow.
+- `agent-remote-example-ai-designer-board`: Private example project demonstrating an AI-controlled React Konva whiteboard with Express, SSE, DeepSeek-compatible LLM calls, browser tool confirmation, dynamic tool discovery, and PNG export.
 
 ## Package Selection
 
@@ -227,7 +263,7 @@ Run one package:
 
 ```bash
 rush build -t agent-remote-client
-rush test -t agent-remote-example-express-sse-react
+rush test -t agent-remote-example-ai-designer-board
 rush lint -t agent-remote-server-core
 ```
 
@@ -243,7 +279,7 @@ rush version-packages
 rush publish-packages
 ```
 
-Public packages under `packages/*` set `publishConfig.access = "public"`. The example package `agent-remote-example-express-sse-react` is private and is not published to npm.
+Public packages under `packages/*` set `publishConfig.access = "public"`. The example package `agent-remote-example-ai-designer-board` is private and is not published to npm.
 
 ## Compatibility
 

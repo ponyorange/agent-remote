@@ -16,3 +16,5 @@ coverage/
 
 .share/
 .pnpm-store/
+.superpowers/
+.worktrees/

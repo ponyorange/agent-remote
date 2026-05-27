@@ -58,8 +58,8 @@
       "reviewCategory": "client"
     },
     {
-      "packageName": "agent-remote-example-express-sse-react",
-      "projectFolder": "examples/express-sse-react",
+      "packageName": "agent-remote-example-ai-designer-board",
+      "projectFolder": "examples/ai-designer-board",
       "reviewCategory": "examples"
     }
   ]
